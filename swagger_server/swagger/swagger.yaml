@@ -1,0 +1,661 @@
+---
+swagger: "2.0"
+info:
+  description: "The following is the documentation for the Leobox REST API, which\
+    \ is a project that file sharing, centralized.\n Access to the website : [http://leobox.org](http://leobox.org)dossier"
+  version: "1.1"
+  title: "Leobox RESTful API"
+host: "leobox.org:8080"
+basePath: "/v1"
+tags:
+- name: "user"
+  description: "Operations about user"
+  externalDocs:
+    description: "Find out more about us "
+    url: "http://leobox.org"
+- name: "file"
+  description: "Operations about file"
+  externalDocs:
+    description: "Find out more about us "
+    url: "http://leobox.org"
+- name: "share"
+  description: "Operations about share of folder/file"
+  externalDocs:
+    description: "Find out more about us "
+    url: "http://leobox.org"
+schemes:
+- "http"
+paths:
+  /user/create:
+    post:
+      tags:
+      - "user"
+      summary: "Create user Leobox"
+      description: "This can access by everyone"
+      operationId: "create_user"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "email"
+        in: "query"
+        description: "Email adresse"
+        required: true
+        type: "string"
+      - name: "username"
+        in: "query"
+        description: "Pseudo of output in Leobox"
+        required: true
+        type: "string"
+      - name: "password"
+        in: "query"
+        description: "Password of User"
+        required: true
+        type: "string"
+        format: "password"
+      responses:
+        200:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": true,\n  \"comment\": \"successful\
+              \ operation\"\n}"
+        400:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
+              \ check information passed through API\"\n}"
+      x-swagger-router-controller: "swagger_server.controllers.user_controller"
+  /user/login:
+    get:
+      tags:
+      - "user"
+      summary: "Logs user into Leobox"
+      description: "This can done by everyone"
+      operationId: "login_user"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "query"
+        description: "The user name for login"
+        required: true
+        type: "string"
+      - name: "password"
+        in: "query"
+        description: "The password for login in clear text"
+        required: true
+        type: "string"
+        format: "password"
+      responses:
+        200:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": true,\n  \"token\": \"string\",\n\
+              \  \"email\": \"string\",\n  \"last and firstname\": \"string\",\n \
+              \ \"comment\": \"successful operation\"\n}"
+        400:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
+              \ check information passed through API\"\n}"
+      x-swagger-router-controller: "swagger_server.controllers.user_controller"
+  /user/{username}/logout:
+    get:
+      tags:
+      - "user"
+      summary: "Logs out current logged in user session"
+      description: "This can only be done by the logged in user."
+      operationId: "logout_user"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name that need to be updated"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": true,\n  \"comment\": \"successful\
+              \ operation\"\n}"
+        400:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
+              \ check information passed through API\"\n}"
+        401:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"authorization\
+              \ information is missing or invalid\"\n}"
+        404:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"informations\
+              \ with the specified path was not found\"\n}"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.user_controller"
+  /user/{username}:
+    get:
+      tags:
+      - "user"
+      summary: "List of username"
+      description: "This can only be done by the logged in user."
+      operationId: "get_user_by_name"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "The user name for get list of user"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": true,\n  \"account\": [\n    \"\
+              string\",\n    \"string\",\n    .....\n  ]\n}"
+        400:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
+              \ check information passed through API\"\n}"
+        401:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"authorization\
+              \ information is missing or invalid\"\n}"
+        404:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"informations\
+              \ with the specified path was not found\"\n}"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.user_controller"
+    put:
+      tags:
+      - "user"
+      summary: "Updated user"
+      description: "This can only be done by the logged in user."
+      operationId: "update_user"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name that need to be updated"
+        required: true
+        type: "string"
+      - name: "new_username"
+        in: "query"
+        description: "new name"
+        required: false
+        type: "string"
+      - name: "email"
+        in: "query"
+        description: "new email"
+        required: false
+        type: "string"
+      - name: "password"
+        in: "query"
+        description: "new password"
+        required: false
+        type: "string"
+        format: "password"
+      responses:
+        200:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": true,\n  \"comment\": \"successful\
+              \ operation\"\n}"
+        400:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
+              \ check information passed through API\"\n}"
+        401:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"authorization\
+              \ information is missing or invalid\"\n}"
+        404:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"informations\
+              \ with the specified path was not found\"\n}"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.user_controller"
+    delete:
+      tags:
+      - "user"
+      summary: "Delete user"
+      description: "This can only be done by the logged in user."
+      operationId: "delete_user"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "The name that needs to be deleted"
+        required: true
+        type: "string"
+      responses:
+        200:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": true,\n  \"comment\": \"successful\
+              \ operation\"\n}"
+        400:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
+              \ check information passed through API\"\n}"
+        401:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"authorization\
+              \ information is missing or invalid\"\n}"
+        404:
+          description: ""
+          examples:
+            application/json: "{\n  \"response\": false,\n  \"comment\": \"informations\
+              \ with the specified path was not found\"\n}"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.user_controller"
+  /file/{username}/upload:
+    post:
+      tags:
+      - "file"
+      summary: "Upload file in Leobox"
+      description: "This can access only by logger user"
+      operationId: "upload_file"
+      consumes:
+      - "multipart/form-data"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "path_file"
+        in: "query"
+        description: "Path of file"
+        required: true
+        type: "string"
+      - name: "file"
+        in: "formData"
+        description: "The file to upload."
+        required: true
+        type: "file"
+      - name: "propertyname"
+        in: "query"
+        description: "Additional property name"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      - name: "propertyvalue"
+        in: "query"
+        description: "Additional property value"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.file_controller"
+  /file/{username}/createdir:
+    post:
+      tags:
+      - "file"
+      summary: "Create directory in Leobox"
+      description: "This can access only by logger user"
+      operationId: "create_directory"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "path_dir"
+        in: "query"
+        description: "Path of file"
+        required: true
+        type: "string"
+      - name: "propertyname"
+        in: "query"
+        description: "Additional property name"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      - name: "propertyvalue"
+        in: "query"
+        description: "Additional property value"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.file_controller"
+  /file/{username}:
+    get:
+      tags:
+      - "file"
+      summary: "List of All File of User"
+      description: "This can access only by logger user"
+      operationId: "get_list_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.file_controller"
+  /file/{username}/{id_file}:
+    get:
+      tags:
+      - "file"
+      summary: "Download File of User"
+      description: "This can access only by logger user"
+      operationId: "get_file"
+      produces:
+      - "multipart/form-data"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "id_file"
+        in: "path"
+        description: "id of file needed to be Deleted"
+        required: true
+        type: "integer"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.file_controller"
+    put:
+      tags:
+      - "file"
+      summary: "Update File of User"
+      description: "This can access only by logger user"
+      operationId: "update_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "id_file"
+        in: "path"
+        description: "id of file needed updated"
+        required: true
+        type: "integer"
+      - name: "path_file"
+        in: "query"
+        description: "Path of File"
+        required: false
+        type: "string"
+      - name: "propertyname"
+        in: "query"
+        description: "Additional property name"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      - name: "propertyvalue"
+        in: "query"
+        description: "Additional property value"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.file_controller"
+    delete:
+      tags:
+      - "file"
+      summary: "Delete File of User"
+      description: "This can access only by logger user"
+      operationId: "delete_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "id_file"
+        in: "path"
+        description: "id of file needed to be Deleted"
+        required: true
+        type: "integer"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.file_controller"
+  /share/{username}/create:
+    post:
+      tags:
+      - "share"
+      summary: "Share file in Leobox"
+      description: "This can access only by logger user"
+      operationId: "share_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "item_type"
+        in: "query"
+        description: "Type of share (file or folder)"
+        required: true
+        type: "string"
+        enum:
+        - "file"
+        - "folder"
+      - name: "name_shared"
+        in: "query"
+        description: "name of who did you share file"
+        required: true
+        type: "integer"
+      - name: "id_file"
+        in: "query"
+        description: "ID of file shared"
+        required: true
+        type: "integer"
+      - name: "expiration"
+        in: "query"
+        description: "Date of expiration share"
+        required: true
+        type: "string"
+        format: "dateTime"
+      - name: "comment"
+        in: "query"
+        description: "Comment for shared file"
+        required: true
+        type: "string"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+  /share/{username}:
+    get:
+      tags:
+      - "share"
+      summary: "List of All Shared File of User"
+      description: "This can access only by logger user"
+      operationId: "get_shared_list_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+  /share/{username}/{id_shared}:
+    get:
+      tags:
+      - "share"
+      summary: "Download Shared File of User"
+      description: "This can access only by logger user and shared user"
+      operationId: "get_shared_file"
+      produces:
+      - "multipart/form-data"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "username of user"
+        required: true
+        type: "string"
+      - name: "id_shared"
+        in: "path"
+        description: "ID of who did you share file"
+        required: true
+        type: "integer"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyShared: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+    put:
+      tags:
+      - "share"
+      summary: "Update shared file in Leobox"
+      description: "This can access only by logger user and shared user"
+      operationId: "updateshare_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "Username of user"
+        required: true
+        type: "string"
+      - name: "id_shared"
+        in: "path"
+        description: "ID of who did you share file"
+        required: true
+        type: "integer"
+      - name: "item_type"
+        in: "query"
+        description: "Type of share (file or folder)"
+        required: false
+        type: "string"
+        enum:
+        - "file"
+        - "folder"
+      - name: "expiration"
+        in: "query"
+        description: "Date of expiration share"
+        required: false
+        type: "string"
+        format: "dateTime"
+      - name: "comment"
+        in: "query"
+        description: "Comment for shared file"
+        required: false
+        type: "string"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyShared: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+    delete:
+      tags:
+      - "share"
+      summary: "Delete File of User"
+      description: "This can access only by logger user and shared user"
+      operationId: "delete_shared_file"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "username of user"
+        required: true
+        type: "string"
+      - name: "id_shared"
+        in: "path"
+        description: "ID of who did you share file"
+        required: true
+        type: "integer"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyShared: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+securityDefinitions:
+  ApiKeyUser:
+    type: "apiKey"
+    name: "ApiKeyUser"
+    in: "header"
+  ApiKeyShared:
+    type: "apiKey"
+    name: "ApiKeyShared"
+    in: "header"
+definitions: {}
+responses:
+  UnauthorizedError:
+    description: "API key is missing or invalid"
+    headers:
+      WWW_Authenticate:
+        type: "string"
