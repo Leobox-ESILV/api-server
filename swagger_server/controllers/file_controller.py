@@ -51,12 +51,7 @@ def get_file(username, id_file):  # noqa: E501
 
     :rtype: None
     """
-    """ return send_file("/storageLeo/user/test_avec_des_espaces.png",
-		mimetype='image/png',
-		as_attachment=True,
-		attachment_filename="test_avec_des_espaces.png"
-	) """
-    return 'do some magic!'
+    return file_model.get_file_model(username, id_file)
 
 
 def get_list_file(username):  # noqa: E501

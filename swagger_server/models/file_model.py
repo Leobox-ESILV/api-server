@@ -11,6 +11,41 @@ from swagger_server.models.api_generique import check_APIKeyUser
 from swagger_server.models.api_generique import normalize_path
 from checksumdir import dirhash
 
+## GENERIQUE FUNCTION FOR MODEL FILE
+
+def get_user_info(username):
+    connection = get_connexion()
+    
+    with connection.cursor() as cursor:
+        sql = """SELECT `ld_accounts`.`user_id`, `oc_storages`.`path_home`, `oc_storages`.`id` as id_storage, `oc_storages`.`quota`, `oc_storages`.`used_space`  
+        FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) 
+        WHERE `ld_accounts`.`display_name`=%s"""
+        cursor.execute(sql, (username))
+        info_user = cursor.fetchone()
+        return info_user
+
+def recursive_create_dir(path, info_user):
+    path_file = normalize_path(path)
+    tab_folder = path_file.split('/')
+    tstamp_now = int(time.time())
+    path_final = info_user['path_home']
+
+    connection = get_connexion()
+    with connection.cursor() as cursor:
+        for folder in tab_folder:
+            path_final = os.path.join(path_final, folder)
+            if not os.path.exists(path_final):
+                os.makedirs(path_final)
+                hash_pathfinal = dirhash(path_final, 'md5')
+                sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `encrypted`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+                cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,0))
+
+    connection.commit()
+    connection.close()
+    return path_final
+
+## END GENERIQUE FUNCTION FOR MODEL FILE
+
 def upload_file_model(username, path_file, file, propertyname, propertyvalue):
     if check_APIKeyUser(username)==False:
         return json_output(401,"authorization information is missing or invalid")
@@ -19,25 +54,12 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
         connection = get_connexion()
         
         with connection.cursor() as cursor:
-            sql = """SELECT `ld_accounts`.`user_id`, `oc_storages`.`path_home`, `oc_storages`.`id` as id_storage, `oc_storages`.`quota`, `oc_storages`.`used_space`  
-            FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) 
-            WHERE `ld_accounts`.`display_name`=%s"""
-            cursor.execute(sql, (username))
-            info_user = cursor.fetchone()
+            # get info of user
+            info_user = get_user_info(username)
 
             # Create folder if not exists !
-            path_file = normalize_path(path_file)
-            tab_folder = path_file.split('/')
+            path_final = recursive_create_dir(path_file, info_user)
             tstamp_now = int(time.time())
-            path_final = info_user['path_home']
-
-            for folder in tab_folder:
-                path_final = os.path.join(path_final, folder)
-                if not os.path.exists(path_final):
-                    os.makedirs(path_final)
-                    hash_pathfinal = dirhash(path_final, 'md5')
-                    sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `encrypted`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
-                    cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,0))
 
             # Upload file on the server
             filename = file.filename
@@ -83,11 +105,8 @@ def get_list_file_model(username):
         connection = get_connexion()
         
         with connection.cursor() as cursor:
-            sql = """SELECT `ld_accounts`.`user_id`, `oc_storages`.`path_home`, `oc_storages`.`id` as id_storage, `oc_storages`.`quota`, `oc_storages`.`used_space`  
-            FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) 
-            WHERE `ld_accounts`.`display_name`=%s"""
-            cursor.execute(sql, (username))
-            info_user = cursor.fetchone()
+            # get info of user
+            info_user = get_user_info(username)
             
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s"
             cursor.execute(sql2, (info_user["id_storage"]))
@@ -105,3 +124,39 @@ def get_list_file_model(username):
 def create_directory_model(username, path_dir, propertyname, propertyvalue):
     if check_APIKeyUser(username)==False:
         return json_output(401,"authorization information is missing or invalid")
+
+    try:
+        # get info of user
+        info_user = get_user_info(username)
+
+        # Create folder if not exists !
+        recursive_create_dir(path_dir, info_user)
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")    
+    return json_output(200,"successful operation")
+
+def get_file_model(username, id_file):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+
+    try:
+        connection = get_connexion()
+        
+        with connection.cursor() as cursor:
+            # get info of user
+            info_user = get_user_info(username)
+
+            sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
+            cursor.execute(sql2, (info_user["id_storage"],id_file))
+            info_file = cursor.fetchone()
+            path_file = os.path.join(info_user["path_home"], info_file['path'])
+            
+            return send_file(path_file,
+                mimetype=info_file['mime_type'],
+                as_attachment=True
+            )
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")  
+    return json_output(400,"bad request, check information passed through API")  
