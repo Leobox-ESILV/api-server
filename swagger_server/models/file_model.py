@@ -10,6 +10,8 @@ from swagger_server.models.api_generique import get_connexion
 from swagger_server.models.api_generique import check_APIKeyUser
 from swagger_server.models.api_generique import normalize_path
 from checksumdir import dirhash
+import json
+import pandas as pd
 
 ## GENERIQUE FUNCTION FOR MODEL FILE
 
@@ -24,6 +26,23 @@ def get_user_info(username):
         info_user = cursor.fetchone()
         return info_user
 
+def get_dir_parent(path_final, info_user):
+    connection = get_connexion()
+    with connection.cursor() as cursor:
+        path_parent = path_final.rsplit('/',1)[0]
+
+        id_parent = None
+        sql3 = "SELECT id as id_parent FROM ld_filecache WHERE path=%s AND id_storage=%s"
+        cursor.execute(sql3, (path_parent.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+        info_parent = cursor.fetchone()
+
+        try:
+            id_parent = info_parent['id_parent']
+        except TypeError:
+            id_parent = None
+        
+        return id_parent
+
 def recursive_create_dir(path, info_user):
     path_file = normalize_path(path)
     tab_folder = path_file.split('/')
@@ -35,15 +54,16 @@ def recursive_create_dir(path, info_user):
         for folder in tab_folder:
             path_final = os.path.join(path_final, folder)
             if not os.path.exists(path_final):
+                id_parent = get_dir_parent(path_final,info_user)
                 os.makedirs(path_final)
                 hash_pathfinal = dirhash(path_final, 'md5')
-                sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `encrypted`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
-                cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,0))
+                sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+                cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,id_parent))
+                connection.commit()
 
-    connection.commit()
     connection.close()
     return path_final
-
+    
 ## END GENERIQUE FUNCTION FOR MODEL FILE
 
 def upload_file_model(username, path_file, file, propertyname, propertyvalue):
@@ -79,9 +99,11 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
 
             # Insert info file in BDD
 
+            id_parent = get_dir_parent(path_upload,info_user)
+
             hash_pathupload = dirhash(path_final, 'md5')
-            sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `encrypted`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
-            cursor.execute(sql2, (info_user['id_storage'],path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,0))
+            sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql2, (info_user['id_storage'],path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_parent))
             
             # Update folder of file in BDDD
 
@@ -99,23 +121,65 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
     return json_output(200,"successful operation")
 
 def get_list_file_model(username):
-    if check_APIKeyUser(username)==False:
-        return json_output(401,"authorization information is missing or invalid")
+    """ if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid") """
     try:
         connection = get_connexion()
         
         with connection.cursor() as cursor:
             # get info of user
             info_user = get_user_info(username)
+
+            sql2 = "SELECT * FROM ld_filecache WHERE id_storage="+str(info_user["id_storage"])
+            df_files = pd.read_sql(sql2, connection)
+
+            sql3 = """SELECT aa.path AS path_parent,
+                        bb.path AS path_child
+                    FROM ld_filecache aa
+                        JOIN ld_filecache bb 
+                  ON aa.id=bb.id_parent"""
+            cursor.execute(sql3, ())
+            parent_child = cursor.fetchall()         
+
+            links = []
+
+            for val in parent_child:
+                links.append((val['path_parent'],val['path_child']))
+
+            sql4 = "SELECT path FROM ld_filecache WHERE id_storage=%s AND id_parent is NULL AND name<>%s"
+            cursor.execute(sql4, (info_user["id_storage"],"Folder"))
+            root_files = cursor.fetchall()  
             
-            sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s"
-            cursor.execute(sql2, (info_user["id_storage"]))
-            list_file = cursor.fetchall()
-            for idx, val in enumerate(list_file):
-                del list_file[idx]['id_storage']
-            json_file = {}
-            json_file['list_file'] = list_file
-            return json_output(200,"successful operation",json_file)
+            parents, children = zip(*links)
+            root_nodes = {x for x in parents if x not in children}
+            for node in root_nodes:
+                links.append(('Files', node))
+
+            for val in root_files:
+                links.append(('Files',val['path']))
+
+            def get_nodes(node):
+                d = {}
+                d['name'] = node.split('/')[-1]
+                try:
+                    d['type'] = df_files.loc[df_files['path'] == node]['name'].values[0]
+                    d['id'] = int(df_files.loc[df_files['path'] == node]['id'].values[0])
+                    d['mime_type'] = df_files.loc[df_files['path'] == node]['mime_type'].values[0]
+                    d['size'] = int(df_files.loc[df_files['path'] == node]['size'].values[0])
+                    d['storage_mtime'] = int(df_files.loc[df_files['path'] == node]['storage_mtime'].values[0])
+                except IndexError:
+                    pass
+                children = get_children(node)
+                if children:
+                    d['sub_dir'] = [get_nodes(child) for child in children]
+                return d
+
+            def get_children(node):
+                return [x[1] for x in links if x[0] == node]
+
+            json_tree = get_nodes('Files')
+
+            return json_output(200,"successful operation",json_tree)
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")    
