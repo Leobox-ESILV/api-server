@@ -121,8 +121,8 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
     return json_output(200,"successful operation")
 
 def get_list_file_model(username):
-    """ if check_APIKeyUser(username)==False:
-        return json_output(401,"authorization information is missing or invalid") """
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
     try:
         connection = get_connexion()
         
@@ -133,41 +133,43 @@ def get_list_file_model(username):
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage="+str(info_user["id_storage"])
             df_files = pd.read_sql(sql2, connection)
 
-            sql3 = """SELECT aa.path AS path_parent,
-                        bb.path AS path_child
-                    FROM ld_filecache aa
-                        JOIN ld_filecache bb 
-                  ON aa.id=bb.id_parent"""
+            sql3 = "SELECT parent.id AS id_parent, child.id AS id_child FROM ld_filecache parent JOIN ld_filecache child ON parent.id=child.id_parent"
             cursor.execute(sql3, ())
             parent_child = cursor.fetchall()         
 
             links = []
+            tstamp_now = str(int(time.time()))
+            root_parent = 'Files'+tstamp_now
 
             for val in parent_child:
-                links.append((val['path_parent'],val['path_child']))
+                links.append((str(val['id_parent']),str(val['id_child'])))
 
-            sql4 = "SELECT path FROM ld_filecache WHERE id_storage=%s AND id_parent is NULL AND name<>%s"
+            sql4 = "SELECT id as id_child FROM ld_filecache WHERE id_storage=%s AND id_parent is NULL AND name<>%s"
             cursor.execute(sql4, (info_user["id_storage"],"Folder"))
             root_files = cursor.fetchall()  
             
             parents, children = zip(*links)
             root_nodes = {x for x in parents if x not in children}
             for node in root_nodes:
-                links.append(('Files', node))
+                links.append((root_parent, node))
 
             for val in root_files:
-                links.append(('Files',val['path']))
+                links.append((root_parent,val['id_child']))
 
             def get_nodes(node):
                 d = {}
-                d['name'] = node.split('/')[-1]
+                d['name'] = node
+
+                if node!=root_parent:
+                    d['name'] = df_files.loc[df_files['id'] == int(node)]['path'].values[0].split('/')[-1]
+
                 try:
-                    d['type'] = df_files.loc[df_files['path'] == node]['name'].values[0]
-                    d['id'] = int(df_files.loc[df_files['path'] == node]['id'].values[0])
-                    d['mime_type'] = df_files.loc[df_files['path'] == node]['mime_type'].values[0]
-                    d['size'] = int(df_files.loc[df_files['path'] == node]['size'].values[0])
-                    d['storage_mtime'] = int(df_files.loc[df_files['path'] == node]['storage_mtime'].values[0])
-                except IndexError:
+                    d['type'] = df_files.loc[df_files['id'] == int(node)]['name'].values[0]
+                    d['id'] = int(df_files.loc[df_files['id'] == int(node)]['id'].values[0])
+                    d['mime_type'] = df_files.loc[df_files['id'] == int(node)]['mime_type'].values[0]
+                    d['size'] = int(df_files.loc[df_files['id'] == int(node)]['size'].values[0])
+                    d['storage_mtime'] = int(df_files.loc[df_files['id'] == int(node)]['storage_mtime'].values[0])
+                except ValueError:
                     pass
                 children = get_children(node)
                 if children:
@@ -177,8 +179,8 @@ def get_list_file_model(username):
             def get_children(node):
                 return [x[1] for x in links if x[0] == node]
 
-            json_tree = get_nodes('Files')
-
+            json_tree = get_nodes(root_parent)
+            del json_tree["name"]
             return json_output(200,"successful operation",json_tree)
     except:
         traceback.print_exc()
