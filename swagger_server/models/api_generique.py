@@ -17,18 +17,15 @@ PASSWORD = db_file.get('connexion', 'password')
 DB = db_file.get('connexion', 'db')
 
 def json_output(status_code,comment,json_input=None):
-    is_status = False
-    if str(status_code)[0]=="2" : 
-        is_status = True
     message = {
-            'is_status': is_status,
+            'is_status': status_code,
             'comment': comment,
     }
     result = message
     if json_input is not None:
         result = merge(message, json_input)
     resp = jsonify(result)
-    resp.status_code = status_code
+    resp.status_code = 200
     return resp
 
 def get_connexion():

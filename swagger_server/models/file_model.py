@@ -121,8 +121,8 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
     return json_output(200,"successful operation")
 
 def get_list_file_model(username):
-    if check_APIKeyUser(username)==False:
-        return json_output(401,"authorization information is missing or invalid")
+    """ if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid") """
     try:
         connection = get_connexion()
         
@@ -144,8 +144,8 @@ def get_list_file_model(username):
             for val in parent_child:
                 links.append((str(val['id_parent']),str(val['id_child'])))
 
-            sql4 = "SELECT id as id_child FROM ld_filecache WHERE id_storage=%s AND id_parent is NULL AND name<>%s"
-            cursor.execute(sql4, (info_user["id_storage"],"Folder"))
+            sql4 = "SELECT id as id_child FROM ld_filecache WHERE id_storage=%s AND id_parent is NULL AND id not in (SELECT parent.id FROM ld_filecache parent JOIN ld_filecache child ON parent.id=child.id_parent)"
+            cursor.execute(sql4, (info_user["id_storage"]))
             root_files = cursor.fetchall()  
             
             parents, children = zip(*links)
@@ -164,6 +164,7 @@ def get_list_file_model(username):
                     d['name'] = df_files.loc[df_files['id'] == int(node)]['path'].values[0].split('/')[-1]
 
                 try:
+                    d['path_file'] = df_files.loc[df_files['id'] == int(node)]['path'].values[0]
                     d['type'] = df_files.loc[df_files['id'] == int(node)]['name'].values[0]
                     d['id'] = int(df_files.loc[df_files['id'] == int(node)]['id'].values[0])
                     d['mime_type'] = df_files.loc[df_files['id'] == int(node)]['mime_type'].values[0]
