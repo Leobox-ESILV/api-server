@@ -121,8 +121,8 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
     return json_output(200,"successful operation")
 
 def get_list_file_model(username):
-    """ if check_APIKeyUser(username)==False:
-        return json_output(401,"authorization information is missing or invalid") """
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
     try:
         connection = get_connexion()
         
