@@ -72,7 +72,7 @@ def login_user_model(username, password):
         connection = get_connexion()
         
         with connection.cursor() as cursor:
-            sql = "SELECT `ld_accounts`.`user_id`, `ld_accounts`.`email`, `ld_accounts`.`display_name`,  `ld_accounts`.`password`, `oc_storages`.`path_home`, `oc_storages`.`quota`, `oc_storages`.`used_space`  FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) WHERE `ld_accounts`.`display_name`=%s"
+            sql = "SELECT `ld_accounts`.`user_id`, `ld_accounts`.`email`, `ld_accounts`.`display_name`,  `ld_accounts`.`password`, `oc_storages`.`quota`, `oc_storages`.`used_space`  FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) WHERE `ld_accounts`.`display_name`=%s"
             cursor.execute(sql, (username))
             info_user = cursor.fetchone()
 

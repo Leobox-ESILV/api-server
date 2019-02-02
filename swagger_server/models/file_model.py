@@ -105,6 +105,13 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
             sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
             cursor.execute(sql2, (info_user['id_storage'],path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_parent))
             
+            # Get the id of insert in filecache
+
+            sql45 = "SELECT LAST_INSERT_ID()"
+            cursor.execute(sql45)
+
+            id_fileinsert = cursor.fetchone()['LAST_INSERT_ID()']
+
             # Update folder of file in BDDD
 
             sql3 = "UPDATE `ld_filecache` SET `size`=`size`+%s WHERE `id_storage`=%s AND `path`=%s"
@@ -113,16 +120,19 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
             sql4 = "UPDATE `oc_storages` SET `used_space`=`used_space`+%s WHERE `id`=%s AND `uid`=%s"
             cursor.execute(sql4, (file_size,info_user['id_storage'],info_user['user_id']))
             
+            json_return = {}
+            json_return['id_insert'] = id_fileinsert
         connection.commit()
         connection.close()
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")    
-    return json_output(200,"successful operation")
+    return json_output(200,"successful operation",json_return)
 
 def get_list_file_model(username):
     if check_APIKeyUser(username)==False:
         return json_output(401,"authorization information is missing or invalid")
+        
     try:
         connection = get_connexion()
         
@@ -133,8 +143,15 @@ def get_list_file_model(username):
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage="+str(info_user["id_storage"])
             df_files = pd.read_sql(sql2, connection)
 
-            sql3 = "SELECT parent.id AS id_parent, child.id AS id_child FROM ld_filecache parent JOIN ld_filecache child ON parent.id=child.id_parent"
-            cursor.execute(sql3, ())
+            # If any file on the folder of user (new user)
+
+            if df_files.empty:
+                json_list = {}
+                json_list['sub_dir'] = []
+                return json_output(200,"successful operation",json_list)
+
+            sql3 = "SELECT parent.id AS id_parent, child.id AS id_child FROM ld_filecache parent JOIN ld_filecache child ON parent.id=child.id_parent WHERE parent.id_storage=%s AND child.id_storage=%s"
+            cursor.execute(sql3, (info_user["id_storage"],info_user["id_storage"]))
             parent_child = cursor.fetchall()         
 
             links = []
@@ -148,6 +165,20 @@ def get_list_file_model(username):
             cursor.execute(sql4, (info_user["id_storage"]))
             root_files = cursor.fetchall()  
             
+            # If only file on root dir and no tree json
+
+            if len(links)==0:
+                sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id_storage=%s"
+                cursor.execute(sql45, (info_user["id_storage"]))
+                list_file = cursor.fetchall()
+
+                for i, val in enumerate(list_file):
+                    list_file[i]['name'] = list_file[i]['path_file'].split('/')[-1]
+
+                json_list = {}
+                json_list['sub_dir'] = list_file
+                return json_output(200,"successful operation",json_list)
+                
             parents, children = zip(*links)
             root_nodes = {x for x in parents if x not in children}
             for node in root_nodes:
