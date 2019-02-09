@@ -43,7 +43,7 @@ def get_dir_parent(path_final, info_user):
         
         return id_parent
 
-def recursive_create_dir(path, info_user):
+def recursive_create_dir(path, info_user, is_info=False):
     path_file = normalize_path(path)
     tab_folder = path_file.split('/')
     tstamp_now = int(time.time())
@@ -59,9 +59,18 @@ def recursive_create_dir(path, info_user):
                 hash_pathfinal = dirhash(path_final, 'md5')
                 sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
                 cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,id_parent))
-                connection.commit()
+        if is_info==True:
+            sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
+            cursor.execute(sql45)
 
+            info_dossiercreated = cursor.fetchone()
+        
+    connection.commit()
     connection.close()
+    if info_dossiercreated is None:
+        return False
+    if is_info==True:
+        return info_dossiercreated
     return path_final
     
 ## END GENERIQUE FUNCTION FOR MODEL FILE
@@ -107,10 +116,11 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
             
             # Get the id of insert in filecache
 
-            sql45 = "SELECT LAST_INSERT_ID()"
+            sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
             cursor.execute(sql45)
 
-            id_fileinsert = cursor.fetchone()['LAST_INSERT_ID()']
+            info_fileinsert = cursor.fetchone()
+            info_fileinsert['name'] = info_fileinsert['path_file'].split('/')[-1]
 
             # Update folder of file in BDDD
 
@@ -119,15 +129,12 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
 
             sql4 = "UPDATE `oc_storages` SET `used_space`=`used_space`+%s WHERE `id`=%s AND `uid`=%s"
             cursor.execute(sql4, (file_size,info_user['id_storage'],info_user['user_id']))
-            
-            json_return = {}
-            json_return['id_insert'] = id_fileinsert
         connection.commit()
         connection.close()
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")    
-    return json_output(200,"successful operation",json_return)
+    return json_output(200,"successful operation",info_fileinsert)
 
 def get_list_file_model(username):
     if check_APIKeyUser(username)==False:
@@ -228,11 +235,14 @@ def create_directory_model(username, path_dir, propertyname, propertyvalue):
         info_user = get_user_info(username)
 
         # Create folder if not exists !
-        recursive_create_dir(path_dir, info_user)
+        info_dossiercreated = recursive_create_dir(path_dir, info_user, True)
+        if info_dossiercreated==False:
+            return json_output(409,"Folder already exists !")
+        info_dossiercreated['name'] = info_dossiercreated['path_file'].split('/')[-1]
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")    
-    return json_output(200,"successful operation")
+    return json_output(200,"successful operation",info_dossiercreated)
 
 def get_file_model(username, id_file):
     if check_APIKeyUser(username)==False:
