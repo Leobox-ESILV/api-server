@@ -62,14 +62,11 @@ def recursive_create_dir(path, info_user, is_info=False):
         if is_info==True:
             sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
             cursor.execute(sql45)
-
             info_dossiercreated = cursor.fetchone()
         
     connection.commit()
     connection.close()
-    if info_dossiercreated is None:
-        return False
-    if is_info==True:
+    if is_info==True and info_dossiercreated is not None:
         return info_dossiercreated
     return path_final
     
