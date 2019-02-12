@@ -15,23 +15,47 @@ import pandas as pd
 import shutil
 
 ## GENERIQUE FUNCTION FOR MODEL FILE
+def getdirsize(path_final,info_user):
+    connection = get_connexion()
+
+    with connection.cursor() as cursor:
+        if not (os.path.exists(path_final)):
+            return 0
+        else:
+            if not (path_final == info_user['path_home']):
+                size = 0
+                sql = """SELECT SUM(size) as total_size FROM `ld_filecache` WHERE  path LIKE %s and id_storage=%s"""
+                cursor.execute(sql,  (path_final.replace(info_user['path_home']+"/","")+"/%",info_user['id_storage']))
+                size = cursor.fetchone()
+                return size['total_size']
+            else:
+                size = 0
+                sql = """SELECT SUM(size) as total_size FROM `ld_filecache` WHERE  id_parent IS NULL and id_storage=%s"""
+                cursor.execute(sql,  (info_user['id_storage']))
+                size = cursor.fetchone()
+                return size['total_size']
 
 def recursive_update_size(path_final, info_user):
     connection = get_connexion()
 
     with connection.cursor() as cursor:
-        if !os.path.exists(path_final):
+        if not (os.path.exists(path_final)):
             path_final = path_final.rsplit('/',1)[0]
         else:
-            sql = """UPDATE `ld_accounts`SET `size`=%s WHERE path = %s and id_storage=%s"""
-            cursor.execute(sql,  (os.path.getsize(path_final),path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+            size = 0
+            sql = """UPDATE `ld_filecache`SET `size`=%s WHERE path = %s and id_storage=%s"""
+            if os.path.isfile(path_final):
+                size = os.path.getsize(path_final)
+            else:
+                size = getdirsize(path_final, info_user)
+            cursor.execute(sql,  (size,path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
 
         while (path_final != info_user['path_home']):
-            sql = """UPDATE `ld_accounts`SET `size`=%s WHERE path = %s and id_storage=%s"""
-            cursor.execute(sql,  (os.path.getsize(path_final),path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+            sql = """UPDATE `ld_filecache`SET `size`=%s WHERE path = %s and id_storage=%s"""
+            cursor.execute(sql,  (getdirsize(path_final, info_user),path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
             path_final = path_final.rsplit('/',1)[0]
         sql = """UPDATE `oc_storages`SET `used_space`=%s WHERE uid = %s"""
-        cursor.execute(sql,  (os.path.getsize(info_user['path_home']+"/"),info_user['path_home'],info_user['user_id']))
+        cursor.execute(sql,  (getdirsize(info_user['path_home'], info_user),info_user['user_id']))
         connection.commit()
         connection.close()
 def get_user_info(username):
@@ -325,7 +349,7 @@ def delete_file_model(username, id_file):
                 # Upload file on the server
                 filename = file.filename
                 path_upload = os.path.join(path_final, filename)
-                if !os.path.exists(path_upload):
+                if not (os.path.exists(path_upload)):
                     return json_output(409,"File/Folder doesn't exist")
                 #Rename folder
                 if os.path.isdir(info_file['path']):
