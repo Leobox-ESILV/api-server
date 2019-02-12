@@ -12,15 +12,16 @@ from swagger_server.models.api_generique import normalize_path
 from checksumdir import dirhash
 import json
 import pandas as pd
+import shutil
 
 ## GENERIQUE FUNCTION FOR MODEL FILE
 
 def get_user_info(username):
     connection = get_connexion()
-    
+
     with connection.cursor() as cursor:
-        sql = """SELECT `ld_accounts`.`user_id`, `oc_storages`.`path_home`, `oc_storages`.`id` as id_storage, `oc_storages`.`quota`, `oc_storages`.`used_space`  
-        FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) 
+        sql = """SELECT `ld_accounts`.`user_id`, `oc_storages`.`path_home`, `oc_storages`.`id` as id_storage, `oc_storages`.`quota`, `oc_storages`.`used_space`
+        FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid)
         WHERE `ld_accounts`.`display_name`=%s"""
         cursor.execute(sql, (username))
         info_user = cursor.fetchone()
@@ -40,10 +41,10 @@ def get_dir_parent(path_final, info_user):
             id_parent = info_parent['id_parent']
         except TypeError:
             id_parent = None
-        
+
         return id_parent
 
-def recursive_create_dir(path, info_user, is_info=False):
+def recursive_create_dir(path, info_user):
     path_file = normalize_path(path)
     tab_folder = path_file.split('/')
     tstamp_now = int(time.time())
@@ -59,17 +60,11 @@ def recursive_create_dir(path, info_user, is_info=False):
                 hash_pathfinal = dirhash(path_final, 'md5')
                 sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
                 cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,id_parent))
-        if is_info==True:
-            sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
-            cursor.execute(sql45)
-            info_dossiercreated = cursor.fetchone()
-        
-    connection.commit()
+                connection.commit()
+
     connection.close()
-    if is_info==True and info_dossiercreated is not None:
-        return info_dossiercreated
     return path_final
-    
+
 ## END GENERIQUE FUNCTION FOR MODEL FILE
 
 def upload_file_model(username, path_file, file, propertyname, propertyvalue):
@@ -78,7 +73,7 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
 
     try:
         connection = get_connexion()
-        
+
         with connection.cursor() as cursor:
             # get info of user
             info_user = get_user_info(username)
@@ -110,7 +105,7 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
             hash_pathupload = dirhash(path_final, 'md5')
             sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
             cursor.execute(sql2, (info_user['id_storage'],path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_parent))
-            
+
             # Get the id of insert in filecache
 
             sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
@@ -130,16 +125,16 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
         connection.close()
     except:
         traceback.print_exc()
-        return json_output(400,"bad request, check information passed through API")    
+        return json_output(400,"bad request, check information passed through API")
     return json_output(200,"successful operation",info_fileinsert)
 
 def get_list_file_model(username):
     if check_APIKeyUser(username)==False:
         return json_output(401,"authorization information is missing or invalid")
-        
+
     try:
         connection = get_connexion()
-        
+
         with connection.cursor() as cursor:
             # get info of user
             info_user = get_user_info(username)
@@ -156,7 +151,7 @@ def get_list_file_model(username):
 
             sql3 = "SELECT parent.id AS id_parent, child.id AS id_child FROM ld_filecache parent JOIN ld_filecache child ON parent.id=child.id_parent WHERE parent.id_storage=%s AND child.id_storage=%s"
             cursor.execute(sql3, (info_user["id_storage"],info_user["id_storage"]))
-            parent_child = cursor.fetchall()         
+            parent_child = cursor.fetchall()
 
             links = []
             tstamp_now = str(int(time.time()))
@@ -167,8 +162,8 @@ def get_list_file_model(username):
 
             sql4 = "SELECT id as id_child FROM ld_filecache WHERE id_storage=%s AND id_parent is NULL AND id not in (SELECT parent.id FROM ld_filecache parent JOIN ld_filecache child ON parent.id=child.id_parent)"
             cursor.execute(sql4, (info_user["id_storage"]))
-            root_files = cursor.fetchall()  
-            
+            root_files = cursor.fetchall()
+
             # If only file on root dir and no tree json
 
             if len(links)==0:
@@ -182,7 +177,7 @@ def get_list_file_model(username):
                 json_list = {}
                 json_list['sub_dir'] = list_file
                 return json_output(200,"successful operation",json_list)
-                
+
             parents, children = zip(*links)
             root_nodes = {x for x in parents if x not in children}
             for node in root_nodes:
@@ -220,8 +215,8 @@ def get_list_file_model(username):
             return json_output(200,"successful operation",json_tree)
     except:
         traceback.print_exc()
-        return json_output(400,"bad request, check information passed through API")    
-    return json_output(400,"bad request, check information passed through API") 
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
 
 def create_directory_model(username, path_dir, propertyname, propertyvalue):
     if check_APIKeyUser(username)==False:
@@ -232,14 +227,11 @@ def create_directory_model(username, path_dir, propertyname, propertyvalue):
         info_user = get_user_info(username)
 
         # Create folder if not exists !
-        info_dossiercreated = recursive_create_dir(path_dir, info_user, True)
-        if info_dossiercreated==False:
-            return json_output(409,"Folder already exists !")
-        info_dossiercreated['name'] = info_dossiercreated['path_file'].split('/')[-1]
+        recursive_create_dir(path_dir, info_user)
     except:
         traceback.print_exc()
-        return json_output(400,"bad request, check information passed through API")    
-    return json_output(200,"successful operation",info_dossiercreated)
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(200,"successful operation")
 
 def get_file_model(username, id_file):
     if check_APIKeyUser(username)==False:
@@ -247,7 +239,7 @@ def get_file_model(username, id_file):
 
     try:
         connection = get_connexion()
-        
+
         with connection.cursor() as cursor:
             # get info of user
             info_user = get_user_info(username)
@@ -256,12 +248,46 @@ def get_file_model(username, id_file):
             cursor.execute(sql2, (info_user["id_storage"],id_file))
             info_file = cursor.fetchone()
             path_file = os.path.join(info_user["path_home"], info_file['path'])
-            
+
             return send_file(path_file,
                 mimetype=info_file['mime_type'],
                 as_attachment=True
             )
     except:
         traceback.print_exc()
-        return json_output(400,"bad request, check information passed through API")  
-    return json_output(400,"bad request, check information passed through API")  
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+
+def delete_file_model(username, id_file):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            # get info of user
+            info_user = get_user_info(username)
+
+            sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
+            cursor.execute(sql2, (info_user["id_storage"],id_file))
+            info_file = cursor.fetchone()
+            path_file = os.path.join(info_user["path_home"], info_file['path'])
+
+            if (info_file['name'] == 'Folder'):
+                shutil.rmtree(path_file)
+                path_sql = info_file['path'] + '%'
+                sql4 = "DELETE FROM ld_filecache WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_user["id_storage"],path_sql))
+
+            else:
+                os.remove(path_file)
+                sql5 = "DELETE FROM ld_filecache WHERE id_storage=%s AND id=%s"
+                cursor.execute(sql5, (info_user["id_storage"],id_file))
+            connection.commit()
+            connection.close()
+            return json_output(200,"successful operation")
+
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")

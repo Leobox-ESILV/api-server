@@ -2,7 +2,7 @@ import connexion
 import six
 
 from swagger_server import util
-import swagger_server.models.file_model as file_model 
+import swagger_server.models.file_model as file_model
 
 
 def create_directory(username, path_dir, propertyname=None, propertyvalue=None):  # noqa: E501
@@ -36,7 +36,7 @@ def delete_file(username, id_file):  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    return file_model.delete_file_model(username, id_file)
 
 
 def get_file(username, id_file):  # noqa: E501
