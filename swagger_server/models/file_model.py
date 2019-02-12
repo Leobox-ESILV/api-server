@@ -291,3 +291,51 @@ def delete_file_model(username, id_file):
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")
     return json_output(400,"bad request, check information passed through API")
+
+
+    def update_file_model(username,id_file, path_file, file):
+        if check_APIKeyUser(username)==False:
+            return json_output(401,"authorization information is missing or invalid")
+
+        try:
+            connection = get_connexion()
+
+            with connection.cursor() as cursor:
+                # get info of user
+                info_user = get_user_info(username)
+
+                # Create folder if not exists !
+                path_final = recursive_create_dir(path_file, info_user)
+                tstamp_now = int(time.time())
+
+                # Upload file on the server
+                filename = file.filename
+                path_upload = os.path.join(path_final, filename)
+
+                if !os.path.exists(path_upload):
+                    return json_output(409,"File/Folder doesn't exist")
+
+                file.save(path_upload)
+
+                # Check if space enough
+
+                file_size = os.path.getsize(path_upload)
+                if info_user['quota'] < (info_user['used_space']+file_size):
+                    os.remove(path_upload)
+                    return json_output(409,"not enough space available")
+
+                # Insert info file in BDD
+
+                id_parent = get_dir_parent(path_upload,info_user)
+
+                hash_pathupload = dirhash(path_final, 'md5')
+                sql2 = "UPDATE `ld_filecache` SET `path` = %s, `path_hash` = %s, `name` = %s, `mime_type`=%s, `size`=%s, `storage_mtime`=%s WHERE id=%s AND id_storage=%s"
+                cursor.execute(sql2, (path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_file, info_user["id_storage"]))
+
+
+            connection.commit()
+            connection.close()
+        except:
+            traceback.print_exc()
+            return json_output(400,"bad request, check information passed through API")
+        return json_output(200,"successful operation",info_fileinsert)

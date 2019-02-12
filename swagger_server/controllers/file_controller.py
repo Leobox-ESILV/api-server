@@ -85,7 +85,7 @@ def update_file(username, id_file, path_file=None, propertyname=None, propertyva
 
     :rtype: None
     """
-    return 'do some magic!'
+    return file_model.update_file_model(username, id_file)
 
 
 def upload_file(username, path_file, file, propertyname=None, propertyvalue=None):  # noqa: E501
