@@ -86,7 +86,7 @@ def update_file(action, username, id_file, path_file=None, file=None, propertyna
     :rtype: None
     """
     if action==1:
-        return file_model.rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+        return file_model.rename_file_model(username, id_file, path_file, propertyname, propertyvalue)
     elif action == 2:
         return file_model.move_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
     elif action == 3:

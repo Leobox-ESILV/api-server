@@ -409,7 +409,7 @@ paths:
       - "application/json"
       parameters:
       - name: "action"
-        in: "path"
+        in: "query"
         description: "(1)rename, (2)move or (3)update"
         required: true
         type: "number"

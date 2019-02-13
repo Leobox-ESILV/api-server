@@ -326,100 +326,94 @@ def delete_file_model(username, id_file):
     return json_output(400,"bad request, check information passed through API")
 
 
-    def rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue):
-        if check_APIKeyUser(username)==False:
-            return json_output(401,"authorization information is missing or invalid")
-        try:
-            connection = get_connexion()
+def rename_file_model(username, id_file, path_file, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
 
-            with connection.cursor() as cursor:
+        with connection.cursor() as cursor:
 
-                # get info of user
-                info_user = get_user_info(username)
-                sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
-                cursor.execute(sql2, (info_user["id_storage"],id_file))
-                info_file = cursor.fetchone()
+            # get info of user
+            info_user = get_user_info(username)
+            sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
+            cursor.execute(sql2, (info_user["id_storage"],id_file))
+            info_file = cursor.fetchone()
+            old_path = info_user['path_home']+'/'+info_file['path']
+            new_path = old_path.rsplit('/',1)[0]+'/'+path_file
+            #Rename folder
+            if os.path.isdir(old_path):
+                os.rename(old_path,new_path)
+                path_sql = info_file['path'] + '%'
+                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s)  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_file['path'],new_path.replace(info_user['path_home']+"/",""),info_user["id_storage"],path_sql))
+            else:
+                os.rename(old_path,new_path)
+                sql4 = "UPDATE `ld_filecache` SET `path` = %s WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (new_path.replace(info_user['path_home']+"/",""),info_user["id_storage"],info_file['path']))
 
+        connection.commit()
+        connection.close()
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(200,"successful operation")
 
-                tstamp_now = int(time.time())
-                path_final = recursive_create_dir(path_file, info_user)
-                # Upload file on the server
-                filename = file.filename
-                path_upload = os.path.join(path_final, filename)
-                #Rename folder
-                if os.path.isdir(info_file['path']):
-                    os.rename(info_file['path'],path_upload)
-                    path_sql = info_file['path'] + '%'
-                    sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s)  WHERE id_storage=%s AND  path LIKE %s"
-                    cursor.execute(sql4, (info_file['path'].replace(info_user['path_home']+"/",""),path_upload.replace(info_user['path_home']+"/",""),info_user["id_storage"],path_sql))
-                else:
-                    os.rename(info_file['path'],path_upload)
-                    path_sql = info_file['path'] + '%'
-                    sql4 = "UPDATE `ld_filecache` SET `path` = %s WHERE id_storage=%s AND  path LIKE %s"
-                    cursor.execute(sql4, (path_upload.replace(info_user['path_home']+"/",""),info_user["id_storage"],path_sql))
+def update_file_model(username, id_file, path_file,file, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
 
-            connection.commit()
-            connection.close()
-        except:
-            traceback.print_exc()
-            return json_output(400,"bad request, check information passed through API")
-        return json_output(200,"successful operation",info_fileinsert)
+    try:
+        connection = get_connexion()
 
-    def update_file_model(username, id_file, path_file,file, propertyname, propertyvalue):
-        if check_APIKeyUser(username)==False:
-            return json_output(401,"authorization information is missing or invalid")
+        with connection.cursor() as cursor:
 
-        try:
-            connection = get_connexion()
+            # get info of user
+            info_user = get_user_info(username)
+            sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
+            cursor.execute(sql2, (info_user["id_storage"],id_file))
+            info_file = cursor.fetchone()
 
-            with connection.cursor() as cursor:
+            # Create folder if not exists !
+            path_final = recursive_create_dir(path_file, info_user)
+            hash_pathupload = dirhash(path_final, 'md5')
+            tstamp_now = int(time.time())
 
-                # get info of user
-                info_user = get_user_info(username)
-                sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
-                cursor.execute(sql2, (info_user["id_storage"],id_file))
-                info_file = cursor.fetchone()
+            # Upload file on the server
+            filename = file.filename
+            path_upload = os.path.join(path_final, filename)
+            if not (os.path.exists(path_upload)):
+                return json_output(409,"File/Folder doesn't exist")
+            #Rename folder
+            if os.path.isdir(info_file['path']):
+                os.rename(info_file['path'],path_upload)
+                path_sql = info_file['path'] + '%'
+                sql4 = "UPDATE `ld_filecache` SET `path` = %s,`path_hash` = %s  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,info_user["id_storage"],info_file['path']))
+                return json_output(409,"Folder renamed")
 
-                # Create folder if not exists !
-                path_final = recursive_create_dir(path_file, info_user)
-                hash_pathupload = dirhash(path_final, 'md5')
-                tstamp_now = int(time.time())
+            delete_file_model(username, id_file)
+            file.save(path_upload)
 
-                # Upload file on the server
-                filename = file.filename
-                path_upload = os.path.join(path_final, filename)
-                if not (os.path.exists(path_upload)):
-                    return json_output(409,"File/Folder doesn't exist")
-                #Rename folder
-                if os.path.isdir(info_file['path']):
-                    os.rename(info_file['path'],path_upload)
-                    path_sql = info_file['path'] + '%'
-                    sql4 = "UPDATE `ld_filecache` SET `path` = %s,`path_hash` = %s  WHERE id_storage=%s AND  path LIKE %s"
-                    cursor.execute(sql4, (path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,info_user["id_storage"],info_file['path']))
-                    return json_output(409,"Folder renamed")
+            # Check if space enough
 
-                delete_file_model(username, id_file)
-                file.save(path_upload)
+            file_size = os.path.getsize(path_upload)
+            if info_user['quota'] < (info_user['used_space']+file_size):
+                os.remove(path_upload)
+                return json_output(409,"not enough space available")
+            # Insert info file in BDD
 
-                # Check if space enough
-
-                file_size = os.path.getsize(path_upload)
-                if info_user['quota'] < (info_user['used_space']+file_size):
-                    os.remove(path_upload)
-                    return json_output(409,"not enough space available")
-                # Insert info file in BDD
-
-                id_parent = get_dir_parent(path_upload,info_user)
+            id_parent = get_dir_parent(path_upload,info_user)
 
 
-                sql2 = "UPDATE `ld_filecache` SET `path` = %s, `path_hash` = %s, `name` = %s, `mime_type`=%s, `size`=%s, `storage_mtime`=%s WHERE id=%s AND id_storage=%s"
-                cursor.execute(sql2, (path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_file, info_user["id_storage"]))
+            sql2 = "UPDATE `ld_filecache` SET `path` = %s, `path_hash` = %s, `name` = %s, `mime_type`=%s, `size`=%s, `storage_mtime`=%s WHERE id=%s AND id_storage=%s"
+            cursor.execute(sql2, (path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_file, info_user["id_storage"]))
 
 
-            connection.commit()
-            connection.close()
-            recursive_update_size(path_upload, info_user)
-        except:
-            traceback.print_exc()
-            return json_output(400,"bad request, check information passed through API")
-        return json_output(200,"successful operation",info_fileinsert)
+        connection.commit()
+        connection.close()
+        recursive_update_size(path_upload, info_user)
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(200,"successful operation",info_fileinsert)
