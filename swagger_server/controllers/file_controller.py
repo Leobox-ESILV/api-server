@@ -85,14 +85,14 @@ def update_file(action, username, id_file, path_file=None, file=None, propertyna
 
     :rtype: None
     """
-    switch (action) {
-            case 1:  return file_model.rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
-                     break;
-            case 2:  return file_model.move_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
-                     break;
-            case 3:  return file_model.update_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
-                     break;
-            return json_output(400,"bad request, ACTION INVALID")
+    if action=1:
+        return file_model.rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+    elif action = 2:
+        return file_model.move_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+    elif action = 3:
+        return file_model.update_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+    else:
+        return json_output(400,"bad request, ACTION INVALID")
         }
 
 
