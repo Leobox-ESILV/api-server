@@ -85,15 +85,14 @@ def update_file(action, username, id_file, path_file=None, file=None, propertyna
 
     :rtype: None
     """
-    if action=1:
+    if action==1:
         return file_model.rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
-    elif action = 2:
+    elif action == 2:
         return file_model.move_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
-    elif action = 3:
+    elif action == 3:
         return file_model.update_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
     else:
         return json_output(400,"bad request, ACTION INVALID")
-        }
 
 
 def upload_file(username, path_file, file, propertyname=None, propertyvalue=None):  # noqa: E501
