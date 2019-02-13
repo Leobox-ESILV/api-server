@@ -326,7 +326,46 @@ def delete_file_model(username, id_file):
     return json_output(400,"bad request, check information passed through API")
 
 
-    def update_file_model(username,id_file, path_file, file):
+    def rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue):
+        if check_APIKeyUser(username)==False:
+            return json_output(401,"authorization information is missing or invalid")
+        try:
+            connection = get_connexion()
+
+            with connection.cursor() as cursor:
+
+                # get info of user
+                info_user = get_user_info(username)
+                sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
+                cursor.execute(sql2, (info_user["id_storage"],id_file))
+                info_file = cursor.fetchone()
+
+
+                tstamp_now = int(time.time())
+                path_final = recursive_create_dir(path_file, info_user)
+                # Upload file on the server
+                filename = file.filename
+                path_upload = os.path.join(path_final, filename)
+                #Rename folder
+                if os.path.isdir(info_file['path']):
+                    os.rename(info_file['path'],path_upload)
+                    path_sql = info_file['path'] + '%'
+                    sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s)  WHERE id_storage=%s AND  path LIKE %s"
+                    cursor.execute(sql4, (info_file['path'].replace(info_user['path_home']+"/",""),path_upload.replace(info_user['path_home']+"/",""),info_user["id_storage"],path_sql))
+                else:
+                    os.rename(info_file['path'],path_upload)
+                    path_sql = info_file['path'] + '%'
+                    sql4 = "UPDATE `ld_filecache` SET `path` = %s WHERE id_storage=%s AND  path LIKE %s"
+                    cursor.execute(sql4, (path_upload.replace(info_user['path_home']+"/",""),info_user["id_storage"],path_sql))
+
+            connection.commit()
+            connection.close()
+        except:
+            traceback.print_exc()
+            return json_output(400,"bad request, check information passed through API")
+        return json_output(200,"successful operation",info_fileinsert)
+
+    def update_file_model(username, id_file, path_file,file, propertyname, propertyvalue):
         if check_APIKeyUser(username)==False:
             return json_output(401,"authorization information is missing or invalid")
 

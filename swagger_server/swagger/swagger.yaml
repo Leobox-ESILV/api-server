@@ -2,7 +2,7 @@
 swagger: "2.0"
 info:
   description: "The following is the documentation for the Leobox REST API, which\
-    \ is a project that file sharing, centralized.\n Access to the website : [http://leobox.org](http://leobox.org)dossier"
+    \ is a project that file sharing, centralized.\n Access to the website : [http://leobox.org](http://leobox.org)"
   version: "1.1"
   title: "Leobox RESTful API"
 host: "leobox.org:8080"
@@ -54,15 +54,11 @@ paths:
         format: "password"
       responses:
         200:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": true,\n  \"comment\": \"successful\
-              \ operation\"\n}"
+          description: "successful operation"
         400:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
-              \ check information passed through API\"\n}"
+          description: "bad request, check information passed through API"
+          schema:
+            $ref: "#/definitions/Response400"
       x-swagger-router-controller: "swagger_server.controllers.user_controller"
   /user/login:
     get:
@@ -87,16 +83,11 @@ paths:
         format: "password"
       responses:
         200:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": true,\n  \"token\": \"string\",\n\
-              \  \"email\": \"string\",\n  \"last and firstname\": \"string\",\n \
-              \ \"comment\": \"successful operation\"\n}"
+          description: "successful operation"
         400:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
-              \ check information passed through API\"\n}"
+          description: "bad request, check information passed through API"
+          schema:
+            $ref: "#/definitions/Response400"
       x-swagger-router-controller: "swagger_server.controllers.user_controller"
   /user/{username}/logout:
     get:
@@ -115,25 +106,25 @@ paths:
         type: "string"
       responses:
         200:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": true,\n  \"comment\": \"successful\
-              \ operation\"\n}"
+          description: "successful operation"
+          schema:
+            type: "string"
         400:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": false,\n  \"comment\": \"bad request,\
-              \ check information passed through API\"\n}"
+          description: "bad request, check information passed through API"
+          schema:
+            $ref: "#/definitions/Response400"
         401:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": false,\n  \"comment\": \"authorization\
-              \ information is missing or invalid\"\n}"
+          description: "authorization information is missing or invalid"
+          schema:
+            $ref: "#/definitions/Response401"
         404:
-          description: ""
-          examples:
-            application/json: "{\n  \"response\": false,\n  \"comment\": \"informations\
-              \ with the specified path was not found\"\n}"
+          description: "informations with the specified path was not found"
+          schema:
+            $ref: "#/definitions/Response404"
+        409:
+          description: "wrong informations"
+          schema:
+            $ref: "#/definitions/Response409"
       security:
       - ApiKeyUser: []
       x-swagger-router-controller: "swagger_server.controllers.user_controller"
@@ -412,9 +403,16 @@ paths:
       summary: "Update File of User"
       description: "This can access only by logger user"
       operationId: "update_file"
+      consumes:
+      - "multipart/form-data"
       produces:
       - "application/json"
       parameters:
+      - name: "action"
+        in: "path"
+        description: "(1)rename, (2)move or (3)update"
+        required: true
+        type: "number"
       - name: "username"
         in: "path"
         description: "name of user"
@@ -430,6 +428,11 @@ paths:
         description: "Path of File"
         required: false
         type: "string"
+      - name: "file"
+        in: "formData"
+        description: "The file to upload."
+        required: false
+        type: "file"
       - name: "propertyname"
         in: "query"
         description: "Additional property name"
@@ -652,10 +655,44 @@ securityDefinitions:
     type: "apiKey"
     name: "ApiKeyShared"
     in: "header"
-definitions: {}
-responses:
-  UnauthorizedError:
-    description: "API key is missing or invalid"
-    headers:
-      WWW_Authenticate:
+definitions:
+  Response400:
+    type: "object"
+    properties:
+      response:
+        type: "boolean"
+      comment:
         type: "string"
+    example:
+      response: false
+      comment: "bad request, check information passed through API"
+  Response401:
+    type: "object"
+    properties:
+      response:
+        type: "boolean"
+      comment:
+        type: "string"
+    example:
+      response: false
+      comment: "authorization information is missing or invalid"
+  Response404:
+    type: "object"
+    properties:
+      response:
+        type: "boolean"
+      comment:
+        type: "string"
+    example:
+      response: false
+      comment: "informations with the specified path was not found"
+  Response409:
+    type: "object"
+    properties:
+      response:
+        type: "boolean"
+      comment:
+        type: "string"
+    example:
+      response: false
+      comment: "wrong informations"

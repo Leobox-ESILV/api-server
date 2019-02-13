@@ -67,7 +67,7 @@ def get_list_file(username):  # noqa: E501
     return file_model.get_list_file_model(username)
 
 
-def update_file(username, id_file, path_file=None, propertyname=None, propertyvalue=None):  # noqa: E501
+def update_file(action, username, id_file, path_file=None, file=None, propertyname=None, propertyvalue=None):  # noqa: E501
     """Update File of User
 
     This can access only by logger user # noqa: E501
@@ -85,7 +85,15 @@ def update_file(username, id_file, path_file=None, propertyname=None, propertyva
 
     :rtype: None
     """
-    return file_model.update_file_model(username, id_file)
+    switch (action) {
+            case 1:  return file_model.rename_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+                     break;
+            case 2:  return file_model.move_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+                     break;
+            case 3:  return file_model.update_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+                     break;
+            return json_output(400,"bad request, ACTION INVALID")
+        }
 
 
 def upload_file(username, path_file, file, propertyname=None, propertyvalue=None):  # noqa: E501
