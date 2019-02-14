@@ -11,7 +11,7 @@ from validate_email import validate_email
 
 
 def create_user_model(email, username, password):
-    
+
     if validate_email(email,verify=True)!=True:
         return json_output(409,"check the email because it does not exist")
 
@@ -21,9 +21,9 @@ def create_user_model(email, username, password):
         with connection.cursor() as cursor:
             sql = "SELECT `email`, `display_name` FROM `ld_accounts` WHERE `email`=%s OR `display_name`=%s"
             cursor.execute(sql, (email,username))
-            if cursor.rowcount>0: 
+            if cursor.rowcount>0:
                 return json_output(409,"check email/username, already exists")
-            
+
         with connection.cursor() as cursor:
             sql = "INSERT INTO `ld_accounts`(`email`,`display_name`,`last_login`,`password`,`state`)VALUES(%s,%s,%s,%s,%s);"
             cursor.execute(sql, (email, username, 0, password_hash, 0))
@@ -36,13 +36,13 @@ def create_user_model(email, username, password):
             sql3 = "INSERT INTO `oc_storages`(`path_home`,`quota`,`used_space`,`available`,`uid`)VALUES(%s,%s,%s,%s,%s);"
             # QUOTA de 10^12 = 1 GO
             cursor.execute(sql3, (path_home, 1000000000000, 0, 1, id_user))
-            
+
         connection.commit()
         connection.close()
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")
-        
+
     return json_output(200,"successful operation")
 
 def get_user_by_name_model(username):
@@ -52,7 +52,7 @@ def get_user_by_name_model(username):
 
     try:
         connection = get_connexion()
-        
+
         with connection.cursor() as cursor:
             sql = "SELECT `display_name` FROM `ld_accounts`"
             cursor.execute(sql)
@@ -63,20 +63,20 @@ def get_user_by_name_model(username):
         connection.close()
     except:
         traceback.print_exc()
-        return json_output(400,"bad request, check information passed through API")    
+        return json_output(400,"bad request, check information passed through API")
 
     return json_output(400,"bad request, check information passed through API")
 
 def login_user_model(username, password):
     try:
         connection = get_connexion()
-        
+
         with connection.cursor() as cursor:
-            sql = "SELECT `ld_accounts`.`user_id`, `ld_accounts`.`email`, `ld_accounts`.`display_name`,  `ld_accounts`.`password`, `oc_storages`.`quota`, `oc_storages`.`used_space`  FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) WHERE `ld_accounts`.`display_name`=%s"
+            sql = "SELECT `ld_accounts`.`user_id`, `ld_accounts`.`email`, `ld_accounts`.`display_name`,  `ld_accounts`.`password`, `oc_storages`.`quota`, `oc_storages`.`used_space`,`oc_storages`.`id` as storageid  FROM `ld_accounts` JOIN `oc_storages` ON (ld_accounts.user_id=oc_storages.uid) WHERE `ld_accounts`.`display_name`=%s"
             cursor.execute(sql, (username))
             info_user = cursor.fetchone()
 
-            if cursor.rowcount==0: 
+            if cursor.rowcount==0:
                 return json_output(409,"username/password wrong !")
 
             if pbkdf2_sha256.verify(password, info_user['password'])==True:
@@ -91,13 +91,20 @@ def login_user_model(username, password):
                 tstamp_now = int(time.time())
                 sql3 = "UPDATE `ld_accounts` SET `last_login`=%s WHERE `display_name`=%s"
                 cursor.execute(sql3, (tstamp_now,username))
-                
+
                 connection.commit()
 
                 del info_user['password']
                 del info_user['user_id']
                 info_user['user_token'] = user_token
                 info_user['expiration_token'] = convert_timestamp
+
+                sql3 = "select id_storage, count(*) total,sum(case when name = 'Folder' then 1 else 0 end) count_folders, sum(case when name = 'Folder' then 0 else 1 end) count_files from ld_filecache WHERE id_storage = %s group by  id_storage"
+                cursor.execute(sql3, (info_user["storageid"]))
+                filecount = cursor.fetchone()
+
+                info_user['file_count'] = filecount['count_files']
+                info_user['dir_count'] = filecount['count_folders']
                 return json_output(200,"successful operation",info_user)
             else:
                 return json_output(409,"username/password wrong !")
@@ -106,7 +113,7 @@ def login_user_model(username, password):
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")
-        
+
     return json_output(400,"bad request, check information passed through API")
 
 def logout_user_model(username):

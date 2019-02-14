@@ -49,6 +49,8 @@ def recursive_update_size(path_final, info_user):
                 size = os.path.getsize(path_final)
                 path_final = path_final.rsplit('/',1)[0]
             else:
+                if path_final[-1] =="/":
+                    path_final = path_final.rsplit('/',1)[0]
                 size = getdirsize(path_final, info_user)
             cursor.execute(sql,  (size,path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
             connection.commit()
@@ -89,6 +91,40 @@ def get_dir_parent(path_final, info_user):
             id_parent = None
 
         return id_parent
+
+def get_jsonanwser(path_final, info_user,fileoverwrite = None):
+    connection = get_connexion()
+    with connection.cursor() as cursor:
+        info_fileinsert = {}
+        if not fileoverwrite :
+            sql2 = "SELECT * FROM ld_filecache WHERE path = %s and id_storage = %s"
+            cursor.execute(sql2, (path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+            info_file = cursor.fetchone()
+            info_fileinsert['id'] = info_file['id']
+            info_fileinsert['mime_type'] = info_file['mime_type']
+            info_fileinsert['name'] =  path_final.rsplit('/',1)[-1]
+            info_fileinsert['path_file'] = info_file['path']
+            info_fileinsert['size'] = info_file['size']
+            info_fileinsert['storage_mtime'] = info_file['storage_mtime']
+            info_fileinsert['type'] = info_file['name']
+        else:
+            info_fileinsert['id'] = fileoverwrite['id']
+            info_fileinsert['mime_type'] = fileoverwrite['mime_type']
+            info_fileinsert['name'] =  path_final.rsplit('/',1)[-1]
+            info_fileinsert['path_file'] = fileoverwrite['path_file']
+            info_fileinsert['size'] = fileoverwrite['size']
+            info_fileinsert['storage_mtime'] = fileoverwrite['storage_mtime']
+            info_fileinsert['type'] = fileoverwrite['name']
+        sql3 = "select id_storage, count(*) total,sum(case when name = 'Folder' then 1 else 0 end) count_folders, sum(case when name = 'Folder' then 0 else 1 end) count_files from ld_filecache WHERE id_storage = %s group by  id_storage"
+        cursor.execute(sql3, (info_user["id_storage"]))
+        filecount = cursor.fetchone()
+
+        info_fileinsert['file_count'] = filecount['count_files']
+        info_fileinsert['dir_count'] = filecount['count_folders']
+        info_fileinsert['quota'] = info_user['quota']
+        info_fileinsert['used_space'] = info_user['used_space']
+        return info_fileinsert
+
 
 def recursive_create_dir(path, info_user):
     path_file = normalize_path(path)
@@ -151,15 +187,17 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
             hash_pathupload = dirhash(path_final, 'md5')
             sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
             cursor.execute(sql2, (info_user['id_storage'],path_upload.replace(info_user['path_home']+"/",""),hash_pathupload,magic.from_file(path_upload),magic.from_file(path_upload, mime=True),file_size,tstamp_now,id_parent))
+            connection.commit()
+            connection.close()
 
+            recursive_update_size(path_upload, info_user)
+            info_fileinsert=get_jsonanwser(path_upload, info_user)
 
-        connection.commit()
-        connection.close()
-        recursive_update_size(path_file, info_user)
+            return json_output(200,"successful operation",info_fileinsert)
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")
-    return json_output(200,"successful operation",info_fileinsert)
+    return json_output(200,"successful operation")
 
 def get_list_file_model(username):
     if check_APIKeyUser(username)==False:
@@ -306,6 +344,7 @@ def delete_file_model(username, id_file):
             info_file = cursor.fetchone()
             path_file = os.path.join(info_user["path_home"], info_file['path'])
             size = info_file['size']
+            fileoverwrite=get_jsonanwser(path_file, info_user)
 
             if (info_file['name'] == 'Folder'):
                 shutil.rmtree(path_file)
@@ -322,7 +361,8 @@ def delete_file_model(username, id_file):
             connection.commit()
             connection.close()
             recursive_update_size(path_file, info_user)
-            return json_output(200,"successful operation")
+            anwser = get_jsonanwser(path_file, info_user,fileoverwrite)
+            return json_output(200,"successful operation",anwser)
 
     except:
         traceback.print_exc()
@@ -371,23 +411,29 @@ def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
 
         with connection.cursor() as cursor:
 
+
             # get info of user
             info_user = get_user_info(username)
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
             cursor.execute(sql2, (info_user["id_storage"],id_file))
             info_file = cursor.fetchone()
             old_path = info_user['path_home']+'/'+info_file['path']
-            new_path = info_user['path_home']+'/'+path_file
             filename = old_path.rsplit('/',1)[-1]
             id_parent = None
-            if path_file:
+            if path_file != "/":
+                new_path = info_user['path_home']+'/'+path_file
                 sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND path=%s"
                 cursor.execute(sql2, (info_user["id_storage"],path_file.rsplit('/',1)[0]))
                 info_parent = cursor.fetchone()
                 id_parent = info_parent["id"]
-
+            else:
+                new_path = info_user['path_home']+'/'
+                path_file = ""
             #Rename folder
             if os.path.isdir(old_path):
+                newfilepathfull= new_path+filename
+                if os.path.isdir(newfilepathfull):
+                    return json_output(400,"Error, folder with the same name aleady exist in this directory")
                 sql4 = "UPDATE `ld_filecache` SET id_parent=%s  WHERE id_storage=%s AND  path LIKE %s"
                 cursor.execute(sql4, (id_parent,info_user["id_storage"],info_file['path']))
                 connection.commit()
@@ -398,6 +444,12 @@ def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
                 shutil.move(old_path,new_path)
 
             else:
+                newfilepathfull= new_path+filename
+                if os.path.isfile(newfilepathfull):
+                    sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND path=%s"
+                    cursor.execute(sql2, (info_user["id_storage"],newfilepathfull.replace(info_user['path_home']+"/","")))
+                    info_newfile = cursor.fetchone()
+                    delete_file_model(username, info_newfile["id"])
                 shutil.move(old_path,new_path)
                 sql4 = "UPDATE `ld_filecache` SET `path` = %s, id_parent=%s WHERE id_storage=%s AND  path LIKE %s"
                 cursor.execute(sql4, (path_file+filename,id_parent,info_user["id_storage"],info_file['path']))
