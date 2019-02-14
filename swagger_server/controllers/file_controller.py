@@ -90,7 +90,7 @@ def update_file(action, username, id_file, path_file=None, file=None, propertyna
     elif action == 2:
         return file_model.move_file_model(username, id_file, path_file, propertyname, propertyvalue)
     elif action == 3:
-        return file_model.update_file_model(username, id_file, path_file, file, propertyname, propertyvalue)
+        return file_model.update_file_model(username, id_file, file, propertyname, propertyvalue)
     else:
         return json_output(400,"bad request, ACTION INVALID")
 
