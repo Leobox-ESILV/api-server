@@ -34,6 +34,7 @@ def getdirsize(path_final,info_user):
                 cursor.execute(sql,  (info_user['id_storage']))
                 size = cursor.fetchone()
                 return size['total_size']
+    connection.close()
 
 def recursive_update_size(path_final, info_user):
     connection = get_connexion()
@@ -49,15 +50,17 @@ def recursive_update_size(path_final, info_user):
             else:
                 size = getdirsize(path_final, info_user)
             cursor.execute(sql,  (size,path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+            connection.commit()
 
         while (path_final != info_user['path_home']):
             sql = """UPDATE `ld_filecache`SET `size`=%s WHERE path = %s and id_storage=%s"""
             cursor.execute(sql,  (getdirsize(path_final, info_user),path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+            connection.commit()
             path_final = path_final.rsplit('/',1)[0]
         sql = """UPDATE `oc_storages`SET `used_space`=%s WHERE uid = %s"""
         cursor.execute(sql,  (getdirsize(info_user['path_home'], info_user),info_user['user_id']))
         connection.commit()
-        connection.close()
+    connection.close()
 def get_user_info(username):
     connection = get_connexion()
 
@@ -353,6 +356,53 @@ def rename_file_model(username, id_file, path_file, propertyname, propertyvalue)
                 cursor.execute(sql4, (new_path.replace(info_user['path_home']+"/",""),info_user["id_storage"],info_file['path']))
 
         connection.commit()
+        connection.close()
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(200,"successful operation")
+
+def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+
+            # get info of user
+            info_user = get_user_info(username)
+            sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
+            cursor.execute(sql2, (info_user["id_storage"],id_file))
+            info_file = cursor.fetchone()
+            old_path = info_user['path_home']+'/'+info_file['path']
+            new_path = info_user['path_home']+'/'+path_file
+            filename = old_path.rsplit('/',1)[-1]
+            id_parent = None
+            if path_file:
+                sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND path=%s"
+                cursor.execute(sql2, (info_user["id_storage"],path_file.rsplit('/',1)[0]))
+                info_parent = cursor.fetchone()
+                id_parent = info_parent["id"]
+
+            #Rename folder
+            if os.path.isdir(old_path):
+                sql4 = "UPDATE `ld_filecache` SET id_parent=%s  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (id_parent,info_user["id_storage"],info_file['path']))
+                connection.commit()
+                path_sql = info_file['path'] + '%'
+                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s)  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_file['path'],path_file+filename,info_user["id_storage"],path_sql))
+                connection.commit()
+                shutil.move(old_path,new_path)
+
+            else:
+                shutil.move(old_path,new_path)
+                sql4 = "UPDATE `ld_filecache` SET `path` = %s, id_parent=%s WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (path_file+filename,id_parent,info_user["id_storage"],info_file['path']))
+                connection.commit()
+            recursive_update_size(old_path, info_user)
+            recursive_update_size(new_path, info_user)
         connection.close()
     except:
         traceback.print_exc()
