@@ -393,7 +393,7 @@ def rename_file_model(username, id_file, path_file, propertyname, propertyvalue)
         connection = get_connexion()
 
         with connection.cursor() as cursor:
-
+            tstamp_now = int(time.time())
             # get info of user
             info_user = get_user_info(username)
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
@@ -407,12 +407,12 @@ def rename_file_model(username, id_file, path_file, propertyname, propertyvalue)
             if os.path.isdir(old_path):
                 os.rename(old_path,new_path)
                 path_sql = info_file['path'] + '%'
-                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s)  WHERE id_storage=%s AND  path LIKE %s"
-                cursor.execute(sql4, (info_file['path'],new_path.replace(info_user['path_home']+"/",""),info_user["id_storage"],path_sql))
+                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s),`storage_mtime`=%s  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_file['path'],new_path.replace(info_user['path_home']+"/",""),tstamp_now,info_user["id_storage"],path_sql))
             else:
                 os.rename(old_path,new_path)
-                sql4 = "UPDATE `ld_filecache` SET `path` = %s WHERE id_storage=%s AND  path LIKE %s"
-                cursor.execute(sql4, (new_path.replace(info_user['path_home']+"/",""),info_user["id_storage"],info_file['path']))
+                sql4 = "UPDATE `ld_filecache` SET `path` = %s,`storage_mtime`=%s WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (new_path.replace(info_user['path_home']+"/",""),tstamp_now,info_user["id_storage"],info_file['path']))
 
         connection.commit()
         connection.close()
@@ -431,6 +431,7 @@ def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
 
 
             # get info of user
+            tstamp_now = int(time.time())
             info_user = get_user_info(username)
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
             cursor.execute(sql2, (info_user["id_storage"],id_file))
@@ -458,8 +459,8 @@ def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
                 cursor.execute(sql4, (id_parent,info_user["id_storage"],info_file['path']))
                 connection.commit()
                 path_sql = info_file['path'] + '%'
-                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s)  WHERE id_storage=%s AND  path LIKE %s"
-                cursor.execute(sql4, (info_file['path'],path_file+filename,info_user["id_storage"],path_sql))
+                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s),`storage_mtime`=%s  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_file['path'],path_file+filename,tstamp_now,info_user["id_storage"],path_sql))
                 connection.commit()
                 shutil.move(old_path,new_path)
 
@@ -471,8 +472,8 @@ def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
                     info_newfile = cursor.fetchone()
                     delete_file_model(username, info_newfile["id"])
                 shutil.move(old_path,new_path)
-                sql4 = "UPDATE `ld_filecache` SET `path` = %s, id_parent=%s WHERE id_storage=%s AND  path LIKE %s"
-                cursor.execute(sql4, (path_file+filename,id_parent,info_user["id_storage"],info_file['path']))
+                sql4 = "UPDATE `ld_filecache` SET `path` = %s, id_parent=%s,  `storage_mtime`=%s WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (path_file+filename,id_parent,tstamp_now,info_user["id_storage"],info_file['path']))
                 connection.commit()
             recursive_update_size(old_path, info_user)
             recursive_update_size(new_path, info_user)
