@@ -19,21 +19,25 @@ def getdirsize(path_final,info_user):
     connection = get_connexion()
 
     with connection.cursor() as cursor:
+        sizetot = 0
         if not (os.path.exists(path_final)):
-            return 0
+            return sizetot
         else:
             if not (path_final == info_user['path_home']):
-                size = 0
                 sql = """SELECT SUM(size) as total_size FROM `ld_filecache` WHERE  path LIKE %s and id_storage=%s"""
                 cursor.execute(sql,  (path_final.replace(info_user['path_home']+"/","")+"/%",info_user['id_storage']))
                 size = cursor.fetchone()
-                return size['total_size']
+                if size['total_size'] is not None:
+                    sizetot = size['total_size']
+
+                return sizetot
             else:
-                size = 0
                 sql = """SELECT SUM(size) as total_size FROM `ld_filecache` WHERE  id_parent IS NULL and id_storage=%s"""
                 cursor.execute(sql,  (info_user['id_storage']))
                 size = cursor.fetchone()
-                return size['total_size']
+                if size['total_size'] is not None:
+                    sizetot = size['total_size']
+                return sizetot
     connection.close()
 
 def recursive_update_size(path_final, info_user):
@@ -57,7 +61,8 @@ def recursive_update_size(path_final, info_user):
 
         while (path_final != info_user['path_home']):
             sql = """UPDATE `ld_filecache`SET `size`=%s WHERE path = %s and id_storage=%s"""
-            cursor.execute(sql,  (getdirsize(path_final, info_user),path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
+            size = getdirsize(path_final, info_user)
+            cursor.execute(sql,  (size,path_final.replace(info_user['path_home']+"/",""),info_user['id_storage']))
             connection.commit()
             path_final = path_final.rsplit('/',1)[0]
         sql = """UPDATE `oc_storages`SET `used_space`=%s WHERE uid = %s"""
@@ -126,12 +131,12 @@ def get_jsonanwser(path_final, info_user,fileoverwrite = None):
         return info_fileinsert
 
 
-def recursive_create_dir(path, info_user):
+def recursive_create_dir(path, info_user, is_info=False):
     path_file = normalize_path(path)
     tab_folder = path_file.split('/')
     tstamp_now = int(time.time())
     path_final = info_user['path_home']
-
+    info_dossiercreated = None
     connection = get_connexion()
     with connection.cursor() as cursor:
         for folder in tab_folder:
@@ -143,8 +148,14 @@ def recursive_create_dir(path, info_user):
                 sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
                 cursor.execute(sql2, (info_user['id_storage'],path_final.replace(info_user['path_home']+"/",""),hash_pathfinal,"Folder","inode/directory",0,tstamp_now,id_parent))
                 connection.commit()
+                if is_info==True:
+                     sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
+                     cursor.execute(sql45)
+                     info_dossiercreated = cursor.fetchone()
 
     connection.close()
+    if is_info==True and info_dossiercreated is not None:
+        return info_dossiercreated
     return path_final
 
 ## END GENERIQUE FUNCTION FOR MODEL FILE
@@ -298,11 +309,14 @@ def create_directory_model(username, path_dir, propertyname, propertyvalue):
         info_user = get_user_info(username)
 
         # Create folder if not exists !
-        recursive_create_dir(path_dir, info_user)
+        info_dossiercreated = recursive_create_dir(path_dir, info_user, True)
+        if info_dossiercreated==False:
+            return json_output(409,"Folder already exists !")
+        info_dossiercreated['name'] = info_dossiercreated['path_file'].split('/')[-1]
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")
-    return json_output(200,"successful operation")
+    return json_output(200,"successful operation",info_dossiercreated)
 
 def get_file_model(username, id_file):
     if check_APIKeyUser(username)==False:
@@ -342,6 +356,8 @@ def delete_file_model(username, id_file):
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
             cursor.execute(sql2, (info_user["id_storage"],id_file))
             info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
             path_file = os.path.join(info_user["path_home"], info_file['path'])
             size = info_file['size']
             fileoverwrite=get_jsonanwser(path_file, info_user)
@@ -383,6 +399,8 @@ def rename_file_model(username, id_file, path_file, propertyname, propertyvalue)
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
             cursor.execute(sql2, (info_user["id_storage"],id_file))
             info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
             old_path = info_user['path_home']+'/'+info_file['path']
             new_path = old_path.rsplit('/',1)[0]+'/'+path_file
             #Rename folder
@@ -417,6 +435,8 @@ def move_file_model(username, id_file, path_file, propertyname, propertyvalue):
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
             cursor.execute(sql2, (info_user["id_storage"],id_file))
             info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
             old_path = info_user['path_home']+'/'+info_file['path']
             filename = old_path.rsplit('/',1)[-1]
             id_parent = None
@@ -476,6 +496,8 @@ def update_file_model(username, id_file, file, propertyname, propertyvalue):
             sql2 = "SELECT * FROM ld_filecache WHERE id_storage=%s AND id=%s"
             cursor.execute(sql2, (info_user["id_storage"],id_file))
             info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
 
             # Create folder if not exists !
             tstamp_now = int(time.time())
