@@ -425,12 +425,13 @@ paths:
         type: "integer"
       - name: "path_file"
         in: "query"
-        description: "Path of File"
+        description: "Path of File (if rename, filename of the new file/directory\
+          \ without path)"
         required: false
         type: "string"
       - name: "file"
         in: "formData"
-        description: "The file to upload."
+        description: "The file to upload. (if rename, null)"
         required: false
         type: "file"
       - name: "propertyname"
@@ -480,13 +481,13 @@ paths:
       security:
       - ApiKeyUser: []
       x-swagger-router-controller: "swagger_server.controllers.file_controller"
-  /share/{username}/create:
+  /share/{username}/access:
     post:
       tags:
       - "share"
-      summary: "Share file in Leobox"
+      summary: "Add user access to file"
       description: "This can access only by logger user"
-      operationId: "share_file"
+      operationId: "share_file_add"
       produces:
       - "application/json"
       parameters:
@@ -495,19 +496,11 @@ paths:
         description: "name of user"
         required: true
         type: "string"
-      - name: "item_type"
-        in: "query"
-        description: "Type of share (file or folder)"
-        required: true
-        type: "string"
-        enum:
-        - "file"
-        - "folder"
-      - name: "name_shared"
+      - name: "username_shared"
         in: "query"
         description: "name of who did you share file"
         required: true
-        type: "integer"
+        type: "string"
       - name: "id_file"
         in: "query"
         description: "ID of file shared"
@@ -516,14 +509,39 @@ paths:
       - name: "expiration"
         in: "query"
         description: "Date of expiration share"
-        required: true
+        required: false
         type: "string"
         format: "dateTime"
-      - name: "comment"
-        in: "query"
-        description: "Comment for shared file"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+    delete:
+      tags:
+      - "share"
+      summary: "Remove access to user to a file shared"
+      description: "This can access only by logger user"
+      operationId: "share_file_delete"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
         required: true
         type: "string"
+      - name: "username_shared"
+        in: "query"
+        description: "name of who did you share file"
+        required: true
+        type: "string"
+      - name: "id_file"
+        in: "query"
+        description: "ID of file shared"
+        required: true
+        type: "integer"
       responses:
         default:
           description: "successful operation"
