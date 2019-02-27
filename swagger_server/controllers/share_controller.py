@@ -34,7 +34,7 @@ def get_shared_file(username, id_shared):  # noqa: E501
     return 'do some magic!'
 
 
-def get_shared_list_file(username):  # noqa: E501
+def get_shared_list_file(username, uid_owner = None, uid_file = None):  # noqa: E501
     """List of All Shared File of User
 
     This can access only by logger user # noqa: E501
@@ -44,7 +44,10 @@ def get_shared_list_file(username):  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    if uid_owner:
+        return share_model.getsharedlistfile2(username,uid_owner)
+    else:
+        return share_model.getsharedlistfile(username)
 
 
 def share_file_add(username, username_shared, id_file, expiration=None):  # noqa: E501

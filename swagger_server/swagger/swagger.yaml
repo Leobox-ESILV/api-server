@@ -563,6 +563,14 @@ paths:
         description: "name of user"
         required: true
         type: "string"
+      - name: uid_owner
+        in: query
+        description: uid of the owner of the shared files
+        type: integer
+      - name: uid_file
+        in: query
+        description: uid of the file
+        type: integer
       responses:
         default:
           description: "successful operation"

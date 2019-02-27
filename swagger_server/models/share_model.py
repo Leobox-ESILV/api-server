@@ -23,7 +23,19 @@ def get_user_info(username):
         WHERE `ld_accounts`.`display_name`=%s"""
         cursor.execute(sql, (username))
         info_user = cursor.fetchone()
+
+
         return info_user
+    connection.close()
+
+def get_username(uid):
+    connection = get_connexion()
+
+    with connection.cursor() as cursor:
+        sql = """SELECT `display_name` FROM ld_accounts WHERE user_id=%s"""
+        cursor.execute(sql, (uid))
+        username = cursor.fetchone()
+        return username
 
 def adduser(username, username_shared, id_file, expiration):
     if check_APIKeyUser(username)==False:
@@ -78,3 +90,68 @@ def removeuser(username, username_shared, id_file):
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")
     return json_output(200,"successful operation")
+
+def getsharedlistfile(username):
+    #if check_APIKeyUser(username)==False:
+    #    return json_output(401,"authorization information is missing or invalid")
+
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            # get info of user
+            info_user = get_user_info(username)
+
+            sql3 = "SELECT DISTINCT uid_owner FROM ld_share WHERE uid_recipient=%s"
+            cursor.execute(sql3, (info_user["user_id"]))
+            sharedwithlist = cursor.fetchall()
+            # If any file on the folder of user (new user)
+
+            if sharedwithlist is None:
+                return json_output(200,"successful operation",[])
+
+            listfolder = []
+            for val in sharedwithlist:
+                info_user_shared = get_username(val['uid_owner'])
+                print(info_user_shared)
+                listfolder.append((info_user_shared['display_name'],val['uid_owner']))
+            connection.close()
+
+            return json_output(200,"successful operation",listfolder)
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+
+def getsharedlistfile2(username,uid_owner):
+    #if check_APIKeyUser(username)==False:
+    #    return json_output(401,"authorization information is missing or invalid")
+
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            # get info of user
+            info_user = get_user_info(username)
+
+            sql3 = """SELECT *
+            FROM `ld_share` JOIN `ld_filecache` ON (ld_share.uid_file=ld_filecache.id)
+            WHERE `ld_share`.`uid_recipient`=%s AND `ld_share`.`uid_owner`=%s"""
+            cursor.execute(sql3, (info_user["user_id"],uid_owner))
+            sharedwithlist = cursor.fetchall()
+            # If any file on the folder of user (new user)
+
+            if sharedwithlist is None:
+                return json_output(200,"successful operation",[])
+            print(sharedwithlist)
+
+            listfolder = []
+            for val in sharedwithlist:
+                listfolder.append(val)
+            connection.close()
+
+            return json_output(200,"successful operation",listfolder)
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
