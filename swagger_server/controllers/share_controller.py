@@ -46,6 +46,8 @@ def get_shared_list_file(username, uid_owner = None, uid_file = None):  # noqa: 
     """
     if uid_owner:
         return share_model.getsharedlistfile2(username,uid_owner)
+    elif uid_file:
+        return share_model.getsharedlistfile3(username,uid_file)
     else:
         return share_model.getsharedlistfile(username)
 

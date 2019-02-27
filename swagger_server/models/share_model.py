@@ -36,6 +36,37 @@ def get_username(uid):
         cursor.execute(sql, (uid))
         username = cursor.fetchone()
         return username
+def isSharedWith(uid_file,username):
+    connection = get_connexion()
+
+    with connection.cursor() as cursor:
+        userinfo = get_user_info(username)
+        fileid = uid_file
+
+        sql31 = """SELECT uid_file
+        FROM `ld_share`
+        WHERE `uid_recipient`=%s"""
+        cursor.execute(sql31, (userinfo['user_id']))
+        directoryaccess = cursor.fetchall()
+        if cursor.rowcount == 0:
+            return False
+
+        while True:
+            sql32 = """SELECT id_parent
+            FROM `ld_filecache`
+            WHERE `id`=%s"""
+            cursor.execute(sql32, (fileid))
+            sharedwithlist2 = cursor.fetchall()
+            if cursor.rowcount == 0:
+                return False
+
+            for val in directoryaccess:
+                if val['uid_file'] == sharedwithlist2[0]['id_parent']:
+                    return True
+            if sharedwithlist2[0]['id_parent'] is None:
+                return False
+            fileid = sharedwithlist2[0]['id_parent']
+
 
 def adduser(username, username_shared, id_file, expiration):
     if check_APIKeyUser(username)==False:
@@ -143,9 +174,51 @@ def getsharedlistfile2(username,uid_owner):
 
             if sharedwithlist is None:
                 return json_output(200,"successful operation",[])
-            print(sharedwithlist)
 
             listfolder = []
+            for val in sharedwithlist:
+                listfolder.append(val)
+            connection.close()
+
+            return json_output(200,"successful operation",listfolder)
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+
+def getsharedlistfile3(username,uid_file):
+    #if check_APIKeyUser(username)==False:
+    #    return json_output(401,"authorization information is missing or invalid")
+
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            # get info of user
+            info_user = get_user_info(username)
+
+            sql3 = """SELECT `ld_filecache`.*
+            FROM `ld_share` JOIN `ld_filecache` ON (ld_share.uid_file=ld_filecache.id_parent)
+            WHERE `ld_share`.`uid_recipient`=%s AND `ld_share`.`uid_file`=%s"""
+            cursor.execute(sql3, (info_user["user_id"],uid_file))
+            sharedwithlist = cursor.fetchall()
+            # If any file on the folder of user (new user)
+            listfolder = []
+            if cursor.rowcount == 0:
+                if isSharedWith(uid_file,username):
+                    sql31 = """SELECT *
+                    FROM `ld_filecache`
+                    WHERE `id_parent`=%s"""
+                    cursor.execute(sql31, (uid_file))
+                    sharedwithlist2 = cursor.fetchall()
+                    if sharedwithlist2 is None:
+                        return json_output(200,"successful operation",listfolder)
+                    for val in sharedwithlist2:
+                        listfolder.append(val)
+                    return json_output(200,"successful operation",listfolder)
+                else:
+                    return json_output(400,"Access denied to the folder")
+
             for val in sharedwithlist:
                 listfolder.append(val)
             connection.close()
