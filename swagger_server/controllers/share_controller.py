@@ -16,7 +16,7 @@ def delete_shared_file(username, id_shared):  # noqa: E501
 
     :rtype: None
     """
-    return None
+    return share_model.delete_file_model(username, id_shared)
 
 
 def get_shared_file(username, id_shared):  # noqa: E501
@@ -31,7 +31,7 @@ def get_shared_file(username, id_shared):  # noqa: E501
 
     :rtype: None
     """
-    return 'do some magic!'
+    return share_model.get_file_model(username, id_file)
 
 
 def get_shared_list_file(username, uid_owner = None, uid_file = None):  # noqa: E501
@@ -90,7 +90,7 @@ def share_file_delete(username, username_shared, id_file):  # noqa: E501
     return share_model.removeuser(username, username_shared, id_file)
 
 
-def updateshare_file(username, id_shared, item_type=None, expiration=None, comment=None):  # noqa: E501
+def updateshare_file(action, username, id_shared, path_file=None,file=None, propertyname=None, propertyvalue=None):  # noqa: E501
     """Update shared file in Leobox
 
     This can access only by logger user and shared user # noqa: E501
@@ -108,4 +108,52 @@ def updateshare_file(username, id_shared, item_type=None, expiration=None, comme
 
     :rtype: None
     """
-    return 'do some magic!'
+    if action==1:
+        return share_model.rename_file_model(username, id_shared, path_file, propertyname, propertyvalue)
+    elif action == 2:
+        return json_output(400,"bad request, NOT YET")
+    elif action == 3:
+        return share_model.update_file_model(username, id_shared, file, propertyname, propertyvalue)
+    else:
+        return json_output(400,"bad request, ACTION INVALID")
+
+
+def upload_file_share(username, parent_id, file, propertyname=None, propertyvalue=None):  # noqa: E501
+    """Upload file in Leobox
+
+    This can access only by logger user # noqa: E501
+
+    :param username: name of user
+    :type username: str
+    :param parent_id: Path of file
+    :type parent_id: str
+    :param file: The file to upload.
+    :type file: werkzeug.datastructures.FileStorage
+    :param propertyname: Additional property name
+    :type propertyname: List[str]
+    :param propertyvalue: Additional property value
+    :type propertyvalue: List[str]
+
+    :rtype: None
+    """
+    return share_model.upload_file_model(username, parent_id, file, propertyname, propertyvalue)
+
+def create_directory_share(username, path_dir, parent_id, propertyname=None, propertyvalue=None):  # noqa: E501
+    """Create directory in Leobox
+
+    This can access only by logger user # noqa: E501
+
+    :param username: name of user
+    :type username: str
+    :param path_dir: Path of file
+    :type path_dir: str
+    :param parent_id: Path of file
+    :type parent_id: str
+    :param propertyname: Additional property name
+    :type propertyname: List[str]
+    :param propertyvalue: Additional property value
+    :type propertyvalue: List[str]
+
+    :rtype: None
+    """
+    return share_model.create_directory_model(username, path_dir,parent_id, propertyname, propertyvalue)

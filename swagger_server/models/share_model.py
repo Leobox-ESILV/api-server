@@ -123,8 +123,8 @@ def removeuser(username, username_shared, id_file):
     return json_output(200,"successful operation")
 
 def getsharedlistfile(username):
-    #if check_APIKeyUser(username)==False:
-    #    return json_output(401,"authorization information is missing or invalid")
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
 
     try:
         connection = get_connexion()
@@ -155,8 +155,8 @@ def getsharedlistfile(username):
     return json_output(400,"bad request, check information passed through API")
 
 def getsharedlistfile2(username,uid_owner):
-    #if check_APIKeyUser(username)==False:
-    #    return json_output(401,"authorization information is missing or invalid")
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
 
     try:
         connection = get_connexion()
@@ -187,8 +187,8 @@ def getsharedlistfile2(username,uid_owner):
     return json_output(400,"bad request, check information passed through API")
 
 def getsharedlistfile3(username,uid_file):
-    #if check_APIKeyUser(username)==False:
-    #    return json_output(401,"authorization information is missing or invalid")
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
 
     try:
         connection = get_connexion()
@@ -224,6 +224,247 @@ def getsharedlistfile3(username,uid_file):
             connection.close()
 
             return json_output(200,"successful operation",listfolder)
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+
+def get_file_model(username, id_file):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            # get info of user
+            if not isSharedWith(id_file,username):
+                return json_output(400,"File is not shared with this user")
+
+
+
+            sql2 = """SELECT *
+                    FROM ld_filecache JOIN `oc_storages` ON (ld_filecache.id_storage=oc_storages.id)
+                    WHERE ld_filecache.id=%s"""
+            cursor.execute(sql2, (id_file))
+            info_file = cursor.fetchone()
+            path_file = os.path.join(info_file["path_home"], info_file['path'])
+
+            return send_file(path_file,
+                mimetype=info_file['mime_type'],
+                as_attachment=True
+            )
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+def delete_file_model(username, id_file):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            if not isSharedWith(id_file,username):
+                return json_output(400,"File is not shared with this user")
+            # get info of user
+
+            sql2 = """SELECT *
+                    FROM ld_filecache JOIN `oc_storages` ON (ld_filecache.id_storage=oc_storages.id)
+                    WHERE ld_filecache.id=%s"""
+            cursor.execute(sql2, (id_file))
+            info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
+            path_file = os.path.join(info_file["path_home"], info_file['path'])
+            size = info_file['size']
+            #fileoverwrite=get_jsonanwser(path_file, info_user)
+
+
+            if (info_file['name'] == 'Folder'):
+                shutil.rmtree(path_file)
+                path_sql = info_file['path'] + '%'
+                sql4 = "DELETE FROM ld_filecache WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_file["id_storage"],path_sql))
+
+            else:
+                os.remove(path_file)
+                sql5 = "DELETE FROM ld_filecache WHERE id_storage=%s AND id=%s"
+                cursor.execute(sql5, (info_file["id_storage"],id_file))
+
+
+            connection.commit()
+            connection.close()
+            #recursive_update_size(path_file, info_user)
+            #anwser = get_jsonanwser(path_file, info_user,fileoverwrite)
+            return json_output(200,"successful operation")
+
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+def rename_file_model(username, id_file, path_file, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            if not isSharedWith(id_file,username):
+                return json_output(400,"File is not shared with this user")
+            # get info of user
+
+            tstamp_now = int(time.time())
+            # get info of user
+            sql2 = """SELECT *
+                    FROM ld_filecache JOIN `oc_storages` ON (ld_filecache.id_storage=oc_storages.id)
+                    WHERE ld_filecache.id=%s"""
+            cursor.execute(sql2, (id_file))
+            info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
+            old_path = info_file['path_home']+'/'+info_file['path']
+            new_path = old_path.rsplit('/',1)[0]+'/'+path_file
+            #Rename folder
+            if os.path.isdir(old_path):
+                os.rename(old_path,new_path)
+                path_sql = info_file['path'] + '%'
+                sql4 = "UPDATE `ld_filecache` SET `path` = REPLACE(path, %s, %s),`storage_mtime`=%s  WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (info_file['path'],new_path.replace(info_file['path_home']+"/",""),tstamp_now,info_file["id_storage"],path_sql))
+            else:
+                os.rename(old_path,new_path)
+                sql4 = "UPDATE `ld_filecache` SET `path` = %s,`storage_mtime`=%s WHERE id_storage=%s AND  path LIKE %s"
+                cursor.execute(sql4, (new_path.replace(info_file['path_home']+"/",""),tstamp_now,info_file["id_storage"],info_file['path']))
+
+
+            connection.commit()
+            connection.close()
+            #recursive_update_size(path_file, info_user)
+            #anwser = get_jsonanwser(path_file, info_user,fileoverwrite)
+            return json_output(200,"successful operation")
+
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+
+def update_file_model(username, id_file, file, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            if not isSharedWith(id_file,username):
+                return json_output(400,"File is not shared with this user")
+            # get info of user
+
+            # get info of user
+            sql2 = """SELECT *
+                    FROM ld_filecache JOIN `oc_storages` ON (ld_filecache.id_storage=oc_storages.id)
+                    WHERE ld_filecache.id=%s"""
+            cursor.execute(sql2, (id_file))
+            info_file = cursor.fetchone()
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
+
+            # Create folder if not exists !
+            tstamp_now = int(time.time())
+            os_path = info_file['path_home']+"/"+info_file['path']
+            if not (os.path.isfile(os_path)):
+                return json_output(409,"File doesn't exist")
+
+
+            os.remove(os_path)
+            file.save(os_path)
+
+
+            sql2 = "UPDATE `ld_filecache` SET `name` = %s, `mime_type`=%s, `size`=%s, `storage_mtime`=%s WHERE id=%s AND id_storage=%s"
+            cursor.execute(sql2, (magic.from_file(os_path),magic.from_file(os_path, mime=True),file_size,tstamp_now,id_file, info_file["id_storage"]))
+            connection.commit()
+
+            connection.close()
+            #recursive_update_size(path_file, info_user)
+            #anwser = get_jsonanwser(path_file, info_user,fileoverwrite)
+            return json_output(200,"successful operation")
+
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+def upload_file_model(username, parent_id, file, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            if not isSharedWith(parent_id,username):
+                return json_output(400,"File is not shared with this user")
+
+            sql2 = """SELECT *
+                    FROM ld_filecache JOIN `oc_storages` ON (ld_filecache.id_storage=oc_storages.id)
+                    WHERE ld_filecache.id=%s"""
+            cursor.execute(sql2, (parent_id))
+            info_file = cursor.fetchone()
+            filename = file.filename
+            tstamp_now = int(time.time())
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
+
+            # Create folder if not exists !
+            os_path = info_file['path_home']+"/"+info_file['path']+"/"+filename
+
+            file.save(os_path)
+            file_size = os.path.getsize(os_path)
+            hash_pathupload = dirhash(os_path, 'md5')
+
+            sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql2, (info_file['id_storage'],os_path.replace(info_file['path_home']+"/",""),hash_pathupload,magic.from_file(os_path),magic.from_file(os_path, mime=True),file_size,tstamp_now,parent_id))
+            connection.commit()
+
+            connection.close()
+            #recursive_update_size(path_file, info_user)
+            #anwser = get_jsonanwser(path_file, info_user,fileoverwrite)
+            return json_output(200,"successful operation")
+
+    except:
+        traceback.print_exc()
+        return json_output(400,"bad request, check information passed through API")
+    return json_output(400,"bad request, check information passed through API")
+def create_directory_model(username, path_dir,parent_id, propertyname, propertyvalue):
+    if check_APIKeyUser(username)==False:
+        return json_output(401,"authorization information is missing or invalid")
+    try:
+        connection = get_connexion()
+
+        with connection.cursor() as cursor:
+            if not isSharedWith(parent_id,username):
+                return json_output(400,"File is not shared with this user")
+
+            sql2 = """SELECT *
+                    FROM ld_filecache JOIN `oc_storages` ON (ld_filecache.id_storage=oc_storages.id)
+                    WHERE ld_filecache.id=%s"""
+            cursor.execute(sql2, (parent_id))
+            info_file = cursor.fetchone()
+            tstamp_now = int(time.time())
+            if not info_file:
+                return json_output(400,"Fichier introuvable dans la BDD")
+
+            # Create folder if not exists !
+            os_path = info_file['path_home']+"/"+info_file['path']+"/"+path_dir
+            os.makedirs(os_path)
+            hash_pathupload = dirhash(os_path, 'md5')
+
+            sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
+            cursor.execute(sql2, (info_file['id_storage'],os_path.replace(info_file['path_home']+"/",""),hash_pathupload,"Folder","inode/directory",0,tstamp_now,parent_id))
+            connection.commit()
+
+            connection.close()
+            #recursive_update_size(path_file, info_user)
+            #anwser = get_jsonanwser(path_file, info_user,fileoverwrite)
+            return json_output(200,"successful operation")
+
     except:
         traceback.print_exc()
         return json_output(400,"bad request, check information passed through API")

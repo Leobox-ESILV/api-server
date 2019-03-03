@@ -481,6 +481,102 @@ paths:
       security:
       - ApiKeyUser: []
       x-swagger-router-controller: "swagger_server.controllers.file_controller"
+  /share/{username}/upload:
+    post:
+      tags:
+      - "share"
+      summary: "Upload file in Leobox"
+      description: "This can access only by logger user"
+      operationId: "upload_file_share"
+      consumes:
+      - "multipart/form-data"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "parent_id"
+        in: "query"
+        description: "Path of file"
+        required: true
+        type: "string"
+      - name: "file"
+        in: "formData"
+        description: "The file to upload."
+        required: true
+        type: "file"
+      - name: "propertyname"
+        in: "query"
+        description: "Additional property name"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      - name: "propertyvalue"
+        in: "query"
+        description: "Additional property value"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
+  /share/{username}/createdir:
+    post:
+      tags:
+      - "share"
+      summary: "Create directory in Leobox"
+      description: "This can access only by logger user"
+      operationId: "create_directory_share"
+      produces:
+      - "application/json"
+      parameters:
+      - name: "username"
+        in: "path"
+        description: "name of user"
+        required: true
+        type: "string"
+      - name: "path_dir"
+        in: "query"
+        description: "Path of file"
+        required: true
+        type: "string"
+      - name: "parent_id"
+        in: "query"
+        description: "Path of file"
+        required: true
+        type: "string"
+      - name: "propertyname"
+        in: "query"
+        description: "Additional property name"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      - name: "propertyvalue"
+        in: "query"
+        description: "Additional property value"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      responses:
+        default:
+          description: "successful operation"
+      security:
+      - ApiKeyUser: []
+      x-swagger-router-controller: "swagger_server.controllers.share_controller"
   /share/{username}/access:
     post:
       tags:
@@ -563,14 +659,16 @@ paths:
         description: "name of user"
         required: true
         type: "string"
-      - name: uid_owner
-        in: query
-        description: uid of the owner of the shared files
-        type: integer
-      - name: uid_file
-        in: query
-        description: uid of the file
-        type: integer
+      - name: "uid_owner"
+        in: "query"
+        description: "uid of the owner of the shared files"
+        required: false
+        type: "integer"
+      - name: "uid_file"
+        in: "query"
+        description: "uid of the file"
+        required: false
+        type: "integer"
       responses:
         default:
           description: "successful operation"
@@ -606,46 +704,61 @@ paths:
     put:
       tags:
       - "share"
-      summary: "Update shared file in Leobox"
-      description: "This can access only by logger user and shared user"
-      operationId: "updateshare_file"
+      summary: "Update File of User"
+      description: "This can access only by logger user"
+      operationId: "update_file_share"
+      consumes:
+      - "multipart/form-data"
       produces:
       - "application/json"
       parameters:
+      - name: "action"
+        in: "query"
+        description: "(1)rename, (2)move or (3)update"
+        required: true
+        type: "number"
       - name: "username"
         in: "path"
-        description: "Username of user"
+        description: "name of user"
         required: true
         type: "string"
       - name: "id_shared"
         in: "path"
-        description: "ID of who did you share file"
+        description: "id of file needed updated"
         required: true
         type: "integer"
-      - name: "item_type"
+      - name: "path_file"
         in: "query"
-        description: "Type of share (file or folder)"
+        description: "Path of File (if rename, filename of the new file/directory\
+          \ without path)"
         required: false
         type: "string"
-        enum:
-        - "file"
-        - "folder"
-      - name: "expiration"
-        in: "query"
-        description: "Date of expiration share"
+      - name: "file"
+        in: "formData"
+        description: "The file to upload. (if rename, null)"
         required: false
-        type: "string"
-        format: "dateTime"
-      - name: "comment"
+        type: "file"
+      - name: "propertyname"
         in: "query"
-        description: "Comment for shared file"
+        description: "Additional property name"
         required: false
-        type: "string"
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
+      - name: "propertyvalue"
+        in: "query"
+        description: "Additional property value"
+        required: false
+        type: "array"
+        items:
+          type: "string"
+        collectionFormat: "multi"
       responses:
         default:
           description: "successful operation"
       security:
-      - ApiKeyShared: []
+      - ApiKeyUser: []
       x-swagger-router-controller: "swagger_server.controllers.share_controller"
     delete:
       tags:
