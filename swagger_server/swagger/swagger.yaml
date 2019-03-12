@@ -699,7 +699,7 @@ paths:
         default:
           description: "successful operation"
       security:
-      - ApiKeyShared: []
+      - ApiKeyUser: []
       x-swagger-router-controller: "swagger_server.controllers.share_controller"
     put:
       tags:
@@ -783,16 +783,12 @@ paths:
         default:
           description: "successful operation"
       security:
-      - ApiKeyShared: []
+      - ApiKeyUser: []
       x-swagger-router-controller: "swagger_server.controllers.share_controller"
 securityDefinitions:
   ApiKeyUser:
     type: "apiKey"
     name: "ApiKeyUser"
-    in: "header"
-  ApiKeyShared:
-    type: "apiKey"
-    name: "ApiKeyShared"
     in: "header"
 definitions:
   Response400:

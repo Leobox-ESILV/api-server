@@ -90,7 +90,7 @@ def share_file_delete(username, username_shared, id_file):  # noqa: E501
     return share_model.removeuser(username, username_shared, id_file)
 
 
-def updateshare_file(action, username, id_shared, path_file=None,file=None, propertyname=None, propertyvalue=None):  # noqa: E501
+def update_file_share(action, username, id_shared, path_file=None,file=None, propertyname=None, propertyvalue=None):  # noqa: E501
     """Update shared file in Leobox
 
     This can access only by logger user and shared user # noqa: E501

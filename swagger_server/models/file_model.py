@@ -123,9 +123,12 @@ def get_jsonanwser(path_final, info_user,fileoverwrite = None):
         sql3 = "select id_storage, count(*) total,sum(case when name = 'Folder' then 1 else 0 end) count_folders, sum(case when name = 'Folder' then 0 else 1 end) count_files from ld_filecache WHERE id_storage = %s group by  id_storage"
         cursor.execute(sql3, (info_user["id_storage"]))
         filecount = cursor.fetchone()
-
-        info_fileinsert['file_count'] = filecount['count_files']
-        info_fileinsert['dir_count'] = filecount['count_folders']
+        if filecount is not None:
+            info_fileinsert['file_count'] = filecount['count_files']
+            info_fileinsert['dir_count'] = filecount['count_folders']
+        else:
+            info_fileinsert['file_count'] = 0
+            info_fileinsert['dir_count'] = 0
         info_fileinsert['quota'] = info_user['quota']
         info_fileinsert['used_space'] = info_user['used_space']
         return info_fileinsert

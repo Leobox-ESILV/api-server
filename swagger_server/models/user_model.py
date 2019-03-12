@@ -35,7 +35,7 @@ def create_user_model(email, username, password):
             os.makedirs(path_home)
             sql3 = "INSERT INTO `oc_storages`(`path_home`,`quota`,`used_space`,`available`,`uid`)VALUES(%s,%s,%s,%s,%s);"
             # QUOTA de 10^12 = 1 GO
-            cursor.execute(sql3, (path_home, 1000000000000, 0, 1, id_user))
+            cursor.execute(sql3, (path_home, 100000000, 0, 1, id_user))
 
         connection.commit()
         connection.close()
@@ -102,9 +102,12 @@ def login_user_model(username, password):
                 sql3 = "select id_storage, count(*) total,sum(case when name = 'Folder' then 1 else 0 end) count_folders, sum(case when name = 'Folder' then 0 else 1 end) count_files from ld_filecache WHERE id_storage = %s group by  id_storage"
                 cursor.execute(sql3, (info_user["storageid"]))
                 filecount = cursor.fetchone()
-
-                info_user['file_count'] = filecount['count_files']
-                info_user['dir_count'] = filecount['count_folders']
+                if filecount is not None:
+                    info_user['file_count'] = filecount['count_files']
+                    info_user['dir_count'] = filecount['count_folders']
+                else:
+                    info_user['file_count'] = 0
+                    info_user['dir_count'] = 0
                 return json_output(200,"successful operation",info_user)
             else:
                 return json_output(409,"username/password wrong !")
