@@ -49,21 +49,32 @@ def isSharedWith(uid_file,username):
         cursor.execute(sql31, (userinfo['user_id']))
         directoryaccess = cursor.fetchall()
         if cursor.rowcount == 0:
+            print("Aucun fichier chez le user")
             return False
+        for val in directoryaccess:
+            print("Check if "+str(val['uid_file']) +"="+str(uid_file))
+            if val['uid_file'] == uid_file:
+                print("Permission accordé")
+                return True
 
         while True:
+            print("Test avec "+str(fileid))
             sql32 = """SELECT id_parent
             FROM `ld_filecache`
             WHERE `id`=%s"""
             cursor.execute(sql32, (fileid))
             sharedwithlist2 = cursor.fetchall()
             if cursor.rowcount == 0:
+                print("Aucun avec l'id "+str(fileid))
                 return False
 
             for val in directoryaccess:
+                print("Check if "+str(val['uid_file']) +"="+str(sharedwithlist2[0]['id_parent']))
                 if val['uid_file'] == sharedwithlist2[0]['id_parent']:
+                    print("Permission accordé")
                     return True
             if sharedwithlist2[0]['id_parent'] is None:
+                print("Check if "+str(sharedwithlist2[0]['id_parent'])+" exist = FALSE")
                 return False
             fileid = sharedwithlist2[0]['id_parent']
 
@@ -144,7 +155,6 @@ def getsharedlistfile(username):
             listfolder = []
             for val in sharedwithlist:
                 info_user_shared = get_username(val['uid_owner'])
-                print(info_user_shared)
                 listfolder.append((info_user_shared['display_name'],val['uid_owner']))
             connection.close()
 
@@ -417,7 +427,7 @@ def upload_file_model(username, parent_id, file, propertyname, propertyvalue):
 
             file.save(os_path)
             file_size = os.path.getsize(os_path)
-            hash_pathupload = dirhash(os_path, 'md5')
+            hash_pathupload = dirhash(info_file['path_home']+"/"+info_file['path']+"/", 'md5')
 
             sql2 = "INSERT INTO `ld_filecache` (`id_storage`, `path`, `path_hash`, `name`, `mime_type`, `size`, `storage_mtime`, `id_parent`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s)"
             cursor.execute(sql2, (info_file['id_storage'],os_path.replace(info_file['path_home']+"/",""),hash_pathupload,magic.from_file(os_path),magic.from_file(os_path, mime=True),file_size,tstamp_now,parent_id))
@@ -440,6 +450,7 @@ def create_directory_model(username, path_dir,parent_id, propertyname, propertyv
 
         with connection.cursor() as cursor:
             if not isSharedWith(parent_id,username):
+                print("Here is the prob")
                 return json_output(400,"File is not shared with this user")
 
             sql2 = """SELECT *

@@ -155,6 +155,10 @@ def recursive_create_dir(path, info_user, is_info=False):
                      sql45 = "SELECT id, mime_type, path as path_file, name as type, storage_mtime, size FROM ld_filecache WHERE id=(SELECT LAST_INSERT_ID())"
                      cursor.execute(sql45)
                      info_dossiercreated = cursor.fetchone()
+                     sql3 = "select id_storage, count(*) total,sum(case when name = 'Folder' then 1 else 0 end) count_folders, sum(case when name = 'Folder' then 0 else 1 end) count_files from ld_filecache WHERE id_storage = %s group by  id_storage"
+                     cursor.execute(sql3, (info_user["id_storage"]))
+                     filecount = cursor.fetchone()
+                     info_dossiercreated['dir_count'] = filecount['count_folders']
 
     connection.close()
     if is_info==True and info_dossiercreated is not None:
@@ -206,6 +210,7 @@ def upload_file_model(username, path_file, file, propertyname, propertyvalue):
 
             recursive_update_size(path_upload, info_user)
             info_fileinsert=get_jsonanwser(path_upload, info_user)
+            info_fileinsert['used_space'] = info_fileinsert['used_space']+file_size
 
             return json_output(200,"successful operation",info_fileinsert)
     except:

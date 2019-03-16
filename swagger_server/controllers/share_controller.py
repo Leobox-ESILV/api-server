@@ -31,7 +31,7 @@ def get_shared_file(username, id_shared):  # noqa: E501
 
     :rtype: None
     """
-    return share_model.get_file_model(username, id_file)
+    return share_model.get_file_model(username, id_shared)
 
 
 def get_shared_list_file(username, uid_owner = None, uid_file = None):  # noqa: E501
